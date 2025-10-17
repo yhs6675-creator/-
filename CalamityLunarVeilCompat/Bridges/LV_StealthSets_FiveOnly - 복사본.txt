@@ -1,0 +1,47 @@
+// File: Bridges/LV_StealthSets_FiveOnly.cs
+using System;
+using Terraria;
+using Terraria.ModLoader;
+
+// 칼라미티 직접 참조 (강한 의존성)
+using CalamityMod.CalPlayer; // CalamityPlayer
+
+namespace CalamityLunarVeilCompat {
+    public class LV_StealthSets_FiveOnly : ModPlayer {
+        // 루나베일 5세트(Head, Body, Legs 내부명)
+        static readonly (string H, string B, string L)[] StealthSets = new[] {
+            ("LunarianVoidHead",   "LunarianVoidBody",   "LunarianVoidLegs"),
+            ("ScissorianMask",     "ScissorianChestplate","ScissorianGreaves"),
+            ("JianxinMask",        "JianxinChestplate",  "JianxinLeggings"),
+            ("WindmillionHat",     "WindmillionRobe",    "WindmillionBoots"),
+            ("EldritchianHood",    "EldritchianCloak",   "EldritchianLegs"),
+        };
+
+        public override void PostUpdateEquips() {
+            // 스텔라모드 3부위 풀세트인지 검사
+            var h = Player.armor[0]?.ModItem;
+            var b = Player.armor[1]?.ModItem;
+            var l = Player.armor[2]?.ModItem;
+            if (h?.Mod?.Name!="Stellamod" || b?.Mod?.Name!="Stellamod" || l?.Mod?.Name!="Stellamod")
+                return;
+
+            string H=h.Name, B=b.Name, L=l.Name;
+            bool wearingLunarSet = false;
+            foreach (var s in StealthSets) {
+                if (H==s.H && B==s.B && L==s.L) { wearingLunarSet = true; break; }
+            }
+            if (!wearingLunarSet) return;
+
+            // 칼라미티 플레이어 직접 접근 (확장 메서드 말고 정석)
+            CalamityPlayer cal = Player.GetModPlayer<CalamityPlayer>();
+
+            // 칼라미티 로그 세트와 동일한 신호 주기
+            cal.wearingRogueArmor = true;
+
+            // 최대 스텔스 확보(칼라미티 세트들이 통상 += 0.5f 정도 부여)
+            if (cal.rogueStealthMax < 0.5f)
+                cal.rogueStealthMax += 0.5f;
+
+                  }
+    }
+}
