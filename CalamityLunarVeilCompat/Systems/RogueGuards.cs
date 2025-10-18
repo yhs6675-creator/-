@@ -15,16 +15,11 @@ namespace CLVCompat.Systems
             "LunarVeilMod",
             "LunarVeilLegacy",
             "LunarVielmod",
-            "LunarViel"
+            "LunarViel",
+            "Stellamod"
         };
 
-        private static readonly HashSet<string> LunarVeilModIdSet = new(StringComparer.OrdinalIgnoreCase);
-
-        static RogueGuards()
-        {
-            foreach (var id in LunarVeilModIds)
-                LunarVeilModIdSet.Add(id);
-        }
+        private static readonly HashSet<string> LunarVeilModIdSet = new(LunarVeilModIds, StringComparer.OrdinalIgnoreCase);
 
         internal static bool IsFromLunarVeil(Item item)
         {
