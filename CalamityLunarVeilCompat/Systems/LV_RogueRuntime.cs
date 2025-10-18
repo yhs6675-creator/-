@@ -30,10 +30,10 @@ namespace CLVCompat.Systems
             return base.UseItem(item, player);
         }
 
-        public override bool Shoot(Player player, Item item, ref Vector2 position, ref Vector2 velocity, ref int type, ref int damage, ref float knockBack)
+        public override bool Shoot(Player player, Item item, ref Vector2 position, ref float speedX, ref float speedY, ref int type, ref int damage, ref float knockBack)
         {
             TryConsumeStealth(item, player);
-            return base.Shoot(player, item, ref position, ref velocity, ref type, ref damage, ref knockBack);
+            return base.Shoot(player, item, ref position, ref speedX, ref speedY, ref type, ref damage, ref knockBack);
         }
 
         public override void OnConsumeAmmo(Item item, Player player)
