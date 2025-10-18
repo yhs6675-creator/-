@@ -36,11 +36,6 @@ namespace CLVCompat.Systems
             return base.Shoot(item, player, source, position, velocity, type, damage, knockback);
         }
 
-        public override void OnConsumeAmmo(Item item, Player player)
-        {
-            TryConsumeStealth(item, player);
-        }
-
         public override void ModifyWeaponDamage(Item item, Player player, ref StatModifier damage)
         {
             if (!ShouldProcess(item, player))
