@@ -18,18 +18,27 @@ namespace CalamityLunarVeilCompat {
 
         private static void Check() {
             _checked = true;
-            _calamityPresent = ModLoader.TryGetMod("CalamityMod", out var cal);
-            if (!_calamityPresent || cal?.Code == null) return;
+            _rogue = null;
+            _calamityPresent = ModLoader.TryGetMod("CalamityMod", out _);
+            if (!_calamityPresent)
+                return;
 
-            var t = cal.Code.GetType("CalamityMod.DamageClasses.RogueDamageClass");
-            if (t != null) {
-                try { _rogue = (DamageClass)System.Activator.CreateInstance(t); }
-                catch { _rogue = null; }
-            }
+            if (ModContent.TryFind("CalamityMod/RogueDamageClass", out DamageClass found))
+                _rogue = found;
         }
 
-        public static bool IsRogue(Item item) =>
-            CalamityPresent && item?.DamageType != null &&
-            item.DamageType.GetType().Name.Contains("RogueDamageClass");
+        public static bool IsRogue(Item item) {
+            if (!CalamityPresent || item is null)
+                return false;
+
+            var rogue = Rogue;
+            if (rogue == null || rogue == DamageClass.Generic)
+                return false;
+
+            if (item.DamageType == rogue)
+                return true;
+
+            return item.CountsAsClass(rogue);
+        }
     }
 }
