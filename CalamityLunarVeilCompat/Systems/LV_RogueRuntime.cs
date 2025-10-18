@@ -40,10 +40,10 @@ namespace CLVCompat.Systems
             base.UseAnimation(item, player);
         }
 
-        public override void UseStyle(Item item, Player player)
+        public override void UseStyle(Item item, Player player, Rectangle heldItemFrame)
         {
             TryConsumeStealth(item, player);
-            base.UseStyle(item, player);
+            base.UseStyle(item, player, heldItemFrame);
         }
 
         public override bool Shoot(Item item, Player player, EntitySource_ItemUse_WithAmmo source, Vector2 position, Vector2 velocity, int type, int damage, float knockback)
