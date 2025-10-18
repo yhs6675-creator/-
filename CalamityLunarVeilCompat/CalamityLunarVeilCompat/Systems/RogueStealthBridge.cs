@@ -28,10 +28,8 @@ namespace CLVCompat.Systems
 
         private static readonly string[] CalamityPlayerTypeNames =
         {
-            "CalamityMod.CalPlayer.CalamityPlayer, CalamityMod",
-            "CalamityMod.CalPlayer.CalamityPlayer, CalamityModPublic",
-            "CalamityMod.CalamityPlayer, CalamityMod",
-            "CalamityMod.CalamityPlayer, CalamityModPublic"
+            "CalamityMod.CalPlayer.CalamityPlayer",
+            "CalamityMod.CalamityPlayer"
         };
 
         private static readonly string[] StealthFieldCandidates = { "stealth", "rogueStealth", "currentStealth" };
@@ -590,9 +588,16 @@ namespace CLVCompat.Systems
 
             public static ReflectionCache Create()
             {
+                var calamity = Calamity;
+                if (calamity?.Code == null)
+                    return null;
+
                 foreach (var name in CalamityPlayerTypeNames)
                 {
-                    var type = Type.GetType(name);
+                    var type = calamity.Code.GetType(name) ?? Type.GetType(name);
+                    if (type == null)
+                        type = Type.GetType($"{name}, CalamityMod") ?? Type.GetType($"{name}, CalamityModPublic");
+
                     if (type == null)
                         continue;
 
