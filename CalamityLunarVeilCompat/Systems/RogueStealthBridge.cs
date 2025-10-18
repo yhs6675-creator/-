@@ -71,12 +71,16 @@ namespace CLVCompat.Systems
 
             if (TryCallGetStealth(player, out current, out max))
             {
+                current = Sanitize(current);
+                max = Sanitize(max);
                 UpdateFallback(player, current, max);
                 return true;
             }
 
             if (TryReflectGetStealth(player, out current, out max))
             {
+                current = Sanitize(current);
+                max = Sanitize(max);
                 UpdateFallback(player, current, max);
                 return true;
             }
@@ -94,15 +98,23 @@ namespace CLVCompat.Systems
             if (player == null)
                 return false;
 
+            value = Sanitize(value);
+
             if (TryCallSetStealth(player, value))
             {
-                UpdateFallback(player, value, Math.Max(value, 1f));
+                if (TryGetStealth(player, out var cur, out var max))
+                    UpdateFallback(player, cur, max);
+                else
+                    UpdateFallback(player, value, Math.Max(value, 1f));
                 return true;
             }
 
             if (TryReflectSetStealth(player, value))
             {
-                UpdateFallback(player, value, Math.Max(value, 1f));
+                if (TryGetStealth(player, out var cur, out var max))
+                    UpdateFallback(player, cur, max);
+                else
+                    UpdateFallback(player, value, Math.Max(value, 1f));
                 return true;
             }
 
@@ -194,10 +206,16 @@ namespace CLVCompat.Systems
                 return false;
 
             if (TryCallRogueMult(player, out mult))
+            {
+                mult = Sanitize(mult);
                 return true;
+            }
 
             if (TryReflectRogueMult(player, out mult))
+            {
+                mult = Sanitize(mult);
                 return true;
+            }
 
             if (TryFallbackGetStealth(player, out var cur, out var max) && max > 0f)
             {
@@ -441,8 +459,8 @@ namespace CLVCompat.Systems
             if (!TryResolveReflection(player, out var cache, out var instance))
                 return false;
 
-            current = cache.ReadStealth(instance);
-            max = cache.ReadMaxStealth(instance);
+            current = Sanitize(cache.ReadStealth(instance));
+            max = Sanitize(cache.ReadMaxStealth(instance));
             return true;
         }
 
@@ -451,7 +469,8 @@ namespace CLVCompat.Systems
             if (!TryResolveReflection(player, out var cache, out var instance))
                 return false;
 
-            value = MathHelper.Clamp(value, 0f, Math.Max(cache.ReadMaxStealth(instance), 1f));
+            var max = Sanitize(cache.ReadMaxStealth(instance));
+            value = MathHelper.Clamp(value, 0f, Math.Max(max, 1f));
             cache.WriteStealth(instance, value);
             return true;
         }
@@ -468,10 +487,10 @@ namespace CLVCompat.Systems
                 return true;
             }
 
-            var max = cache.ReadMaxStealth(instance);
+            var max = Sanitize(cache.ReadMaxStealth(instance));
             if (max > 0f)
             {
-                ready = cache.ReadStealth(instance) >= max - 1e-3f;
+                ready = Sanitize(cache.ReadStealth(instance)) >= max - 1e-3f;
                 return true;
             }
 
@@ -484,8 +503,8 @@ namespace CLVCompat.Systems
             if (!TryResolveReflection(player, out var cache, out var instance))
                 return false;
 
-            var cur = cache.ReadStealth(instance);
-            var max = cache.ReadMaxStealth(instance);
+            var cur = Sanitize(cache.ReadStealth(instance));
+            var max = Sanitize(cache.ReadMaxStealth(instance));
             var drain = MathHelper.Clamp(max * FallbackNormalDrainRatio, 0f, cur);
             cache.WriteStealth(instance, cur - drain);
             cache.WriteStrikeReady(instance, false);
@@ -499,8 +518,8 @@ namespace CLVCompat.Systems
             if (!TryResolveReflection(player, out var cache, out var instance))
                 return false;
 
-            var cur = cache.ReadStealth(instance);
-            var max = cache.ReadMaxStealth(instance);
+            var cur = Sanitize(cache.ReadStealth(instance));
+            var max = Sanitize(cache.ReadMaxStealth(instance));
             consumed = MathHelper.Clamp(cur, 0f, Math.Max(max, 0f));
             cache.WriteStealth(instance, Math.Max(0f, cur - consumed));
             cache.WriteStrikeReady(instance, false);
@@ -513,11 +532,11 @@ namespace CLVCompat.Systems
             if (!TryResolveReflection(player, out var cache, out var instance))
                 return false;
 
-            var max = cache.ReadMaxStealth(instance);
+            var max = Sanitize(cache.ReadMaxStealth(instance));
             if (max <= 0f)
                 return false;
 
-            var cur = cache.ReadStealth(instance);
+            var cur = Sanitize(cache.ReadStealth(instance));
             mult = EvalFallbackRogueMult(MathHelper.Clamp(cur / max, 0f, 1f));
             return true;
         }
@@ -687,8 +706,10 @@ namespace CLVCompat.Systems
                 return;
 
             FallbackInitialized[idx] = true;
-            FallbackCurrent[idx] = MathHelper.Clamp(current, 0f, Math.Max(max, 0f));
-            FallbackMax[idx] = Math.Max(max, 1f);
+            current = MathHelper.Clamp(Sanitize(current), 0f, Math.Max(Sanitize(max), 0f));
+            max = Math.Max(Sanitize(max), 1f);
+            FallbackCurrent[idx] = current;
+            FallbackMax[idx] = max;
         }
 
         private static void SetFallback(Player player, float current, float max)
@@ -698,8 +719,10 @@ namespace CLVCompat.Systems
                 return;
 
             FallbackInitialized[idx] = true;
-            FallbackCurrent[idx] = MathHelper.Clamp(current, 0f, Math.Max(max, 0f));
-            FallbackMax[idx] = Math.Max(max, 1f);
+            current = MathHelper.Clamp(Sanitize(current), 0f, Math.Max(Sanitize(max), 0f));
+            max = Math.Max(Sanitize(max), 1f);
+            FallbackCurrent[idx] = current;
+            FallbackMax[idx] = max;
         }
 
         private static void AdjustFallbackDelta(Player player, float consumed, bool strike)
@@ -707,10 +730,18 @@ namespace CLVCompat.Systems
             if (!TryFallbackGetStealth(player, out var cur, out var max))
                 return;
 
-            cur = MathHelper.Clamp(cur - Math.Max(consumed, 0f), 0f, max);
+            cur = MathHelper.Clamp(cur - Math.Max(Sanitize(consumed), 0f), 0f, max);
             if (strike)
                 cur = Math.Max(cur, 0f);
             SetFallback(player, cur, max);
+        }
+
+        private static float Sanitize(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+                return 0f;
+
+            return value;
         }
     }
 }
