@@ -12,7 +12,7 @@ namespace CLVCompat.Systems
     {
         private bool consumedThisUse;
         private bool lastStealthStrike;
-        private int lastUseFrame = -1;
+        private uint lastUseFrame = uint.MaxValue;
 
         public override bool InstancePerEntity => true;
 
@@ -20,7 +20,7 @@ namespace CLVCompat.Systems
         {
             consumedThisUse = false;
             lastStealthStrike = false;
-            lastUseFrame = -1;
+            lastUseFrame = uint.MaxValue;
             return base.CanUseItem(item, player);
         }
 
@@ -63,7 +63,7 @@ namespace CLVCompat.Systems
                 return false;
             }
 
-            if (Main.GameUpdateCount - lastUseFrame > 1)
+            if (lastUseFrame == uint.MaxValue || Main.GameUpdateCount - lastUseFrame > 1u)
             {
                 strike = false;
                 return false;
