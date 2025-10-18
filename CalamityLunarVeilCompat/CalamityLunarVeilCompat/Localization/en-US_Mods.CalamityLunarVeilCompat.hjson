@@ -1,0 +1,141 @@
+Configs: {
+	CompatConfig: {
+		DisplayName: Compat Config
+
+		BlockSmallWorlds: {
+			Label: Small 월드 차단(권장)
+			Tooltip: ""
+		}
+
+		DelayLunarVeil: {
+			Label: Lunar Veil 패스 뒤로 보내기
+			Tooltip: ""
+		}
+
+		ProtectVanilla: {
+			Label: 바닐라 구조물 보호
+			Tooltip: ""
+		}
+
+		ProtectCalamity: {
+			Label: 칼라미티 바이옴/구조물 보호
+			Tooltip: ""
+		}
+
+		ExtraPadding: {
+			Label: 보호 여백(타일, 기본값)
+			Tooltip: ""
+		}
+
+		ScanStep: {
+			Label: 칼라미티 스캔 스텝(값 작을수록 촘촘)
+			Tooltip: ""
+		}
+
+		ChunkSize: {
+			Label: 스캔 청크 크기(기본 96)
+			Tooltip: ""
+		}
+
+		MinHitsBase: {
+			Label: 청크 보호 기준 타일 수(기본 24)
+			Tooltip: ""
+		}
+
+		AutoScaleForBiggerWorlds: {
+			Label: 월드가 커지면 자동 스케일링
+			Tooltip: ""
+		}
+
+		ReserveLimit: {
+			Label: 예약 직사각형 개수 상한(과보호 방지)
+			Tooltip: ""
+		}
+
+		VerboseLog: {
+			Label: 로그 출력
+			Tooltip: ""
+		}
+
+		DungeonMargin: {
+			Tooltip: ""
+			Label: 던전 가장자리 여백(타일)
+		}
+
+		ClampDungeonEntranceX: {
+			Tooltip: ""
+			Label: 던전 입구 X 강제 클램프(권장)
+		}
+	}
+
+	ThrownUnifyConfig: {
+		VerboseLog: {
+			Tooltip: ""
+			Label: Verbose log to chat/log
+		}
+
+		ExtraHeuristics: {
+			Tooltip: ""
+			Label: Extra name/usage heuristics for thrown detection
+		}
+
+		DetectByName: {
+			Tooltip: ""
+			Label: Detect thrown by class-name (legacy fallback)
+		}
+
+		ConvertProjectiles: {
+			Tooltip: ""
+			Label: Also convert spawned projectiles to Rogue
+		}
+
+		EnableLVThrownToRogue: {
+			Tooltip: ""
+			Label: Unify Lunar Veil(legacy) thrown -> Calamity Rogue
+		}
+
+		DisplayName: Thrown Unify Config
+
+		ApplyRogueBridgeBonuses: {
+			Tooltip: ""
+			Label: Apply Calamity Rogue bonuses as a bridge
+		}
+
+		ForceStealthFullReset: {
+			Label: Force FULL stealth reset on Stellamod thrown use
+			Tooltip: ""
+		}
+
+		ForceStealthConsume: {
+			Label: Force stealth consume by percent (fallback)
+			Tooltip: ""
+		}
+
+		ForcedStealthAmount: {
+			Label: Forced stealth amount per use (0.05 = 5%)
+			Tooltip: ""
+		}
+
+		Headers.TargetedForceResetHelpers: Targeted Force Reset Helpers Header
+
+		ForceResetItemNameContains: {
+			Label: ForceResetWhenItemNameContains
+			Tooltip: ""
+		}
+
+		ForceResetProjectileNameContains: {
+			Label: ForceResetWhenProjectileNameContains
+			Tooltip: ""
+		}
+
+		ForceResetProjectileTypes: {
+			Label: ForceResetForSpecificProjectileTypeValues
+			Tooltip: ""
+		}
+
+		ForceResetOnAnyLVProjectile: {
+			Label: ForceResetOnAnyLVProjectileSpawn
+			Tooltip: ""
+		}
+	}
+}

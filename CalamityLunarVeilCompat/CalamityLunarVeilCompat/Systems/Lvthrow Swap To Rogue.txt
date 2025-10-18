@@ -1,0 +1,99 @@
+// LVThrowSwapToRogue.cs — runtime-state rule version (no Calamity compile ref)
+using System;
+using System.IO;
+using System.Reflection;
+using Terraria;
+using Terraria.DataStructures;
+using Terraria.ID;
+using Terraria.ModLoader;
+
+namespace CalamityLunarVeilCompat.Systems
+{
+    public sealed class LVThrowSwapToRogue : GlobalItem
+    {
+        private static bool IsFromLV(ModItem mi) => mi?.Mod?.Name == "Stellamod";
+
+        private static bool triedCala;
+        private static DamageClass rogueDC;
+        private static DamageClass RogueDC {
+            get {
+                if (triedCala) return rogueDC;
+                triedCala = true;
+                try {
+                    if (ModLoader.TryGetMod("CalamityMod", out var cal))
+                        rogueDC = cal.Find<DamageClass>("RogueDamageClass");
+                } catch { rogueDC = null; }
+                return rogueDC;
+            }
+        }
+
+        private static bool IsWhip(Item item) =>
+            item != null && (ProjectileID.Sets.IsAWhip[item.shoot] || item.DamageType == DamageClass.SummonMeleeSpeed);
+        private static bool IsSummonLike(Item item) =>
+            item != null && (item.DamageType == DamageClass.Summon || item.DamageType == DamageClass.SummonMeleeSpeed);
+
+        private static void ForceRogueIfThrowingNow(Item item)
+        {
+            var rogue = RogueDC;
+            if (rogue == null) return;
+            if (!IsFromLV(item.ModItem)) return;
+            if (IsSummonLike(item) || IsWhip(item)) return;
+
+            // 현재 Throwing이면 Rogue로 교체
+            if (item.DamageType == DamageClass.Throwing && item.DamageType != rogue)
+                item.DamageType = rogue;
+        }
+
+        public override void UpdateInventory(Item item, Player player) => ForceRogueIfThrowingNow(item);
+        public override void OnCreated(Item item, ItemCreationContext context) => ForceRogueIfThrowingNow(item);
+        public override void PostReforge(Item item) => ForceRogueIfThrowingNow(item);
+
+        public override void NetSend(Item item, BinaryWriter writer) { /* no-op */ }
+        public override void NetReceive(Item item, BinaryReader reader)
+        {
+            base.NetReceive(item, reader);
+            ForceRogueIfThrowingNow(item);
+        }
+    }
+
+    public sealed class LVThrowSwapToRogueProj : GlobalProjectile
+    {
+        public override void OnSpawn(Projectile projectile, IEntitySource source)
+        {
+            DamageClass rogue = null;
+            if (LVThrowSwapToRogue_ModHelper.TryGetRogue(out var dc))
+                rogue = dc;
+            if (rogue == null) return;
+
+            Item src = (source as EntitySource_ItemUse)?.Item
+                    ?? (source as EntitySource_ItemUse_WithAmmo)?.Item;
+            var owner = Main.player[projectile.owner];
+            Item held = owner?.HeldItem;
+
+            bool FromLVThrowing(Item it)
+                => it?.ModItem?.Mod?.Name == "Stellamod" && it.DamageType == DamageClass.Throwing
+                   && it.DamageType != rogue;
+
+            if (FromLVThrowing(src) || (src is null && FromLVThrowing(held)))
+                projectile.DamageType = rogue;
+        }
+    }
+
+    internal static class LVThrowSwapToRogue_ModHelper
+    {
+        private static bool tried;
+        private static DamageClass rogue;
+        public static bool TryGetRogue(out DamageClass dc)
+        {
+            if (!tried) {
+                tried = true;
+                try {
+                    if (ModLoader.TryGetMod("CalamityMod", out var cal))
+                        rogue = cal.Find<DamageClass>("RogueDamageClass");
+                } catch { rogue = null; }
+            }
+            dc = rogue;
+            return dc != null;
+        }
+    }
+}

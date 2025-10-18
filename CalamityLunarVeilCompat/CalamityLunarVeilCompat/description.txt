@@ -1,0 +1,1 @@
+Worldgen compatibility-only patch: reserves vanilla & Calamity areas and delays Lunar Veil passes to reduce overlaps. No items or content added.
