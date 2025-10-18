@@ -10,17 +10,21 @@ namespace CLVCompat.Systems
     /// </summary>
     public class LV_RogueRuntime : GlobalItem
     {
-        private bool consumedThisUse;
         private bool lastStealthStrike;
-        private uint lastUseFrame = uint.MaxValue;
+        private uint lastConsumeFrame = uint.MaxValue;
+        private int lastConsumePlayer = -1;
+        private int lastConsumeAnimation = -1;
+        private int lastConsumeItemTime = -1;
 
         public override bool InstancePerEntity => true;
 
         public override bool CanUseItem(Item item, Player player)
         {
-            consumedThisUse = false;
             lastStealthStrike = false;
-            lastUseFrame = uint.MaxValue;
+            lastConsumeFrame = uint.MaxValue;
+            lastConsumePlayer = -1;
+            lastConsumeAnimation = -1;
+            lastConsumeItemTime = -1;
             return base.CanUseItem(item, player);
         }
 
@@ -28,6 +32,18 @@ namespace CLVCompat.Systems
         {
             TryConsumeStealth(item, player);
             return base.UseItem(item, player);
+        }
+
+        public override void UseAnimation(Item item, Player player)
+        {
+            TryConsumeStealth(item, player);
+            base.UseAnimation(item, player);
+        }
+
+        public override void UseStyle(Item item, Player player)
+        {
+            TryConsumeStealth(item, player);
+            base.UseStyle(item, player);
         }
 
         public override bool Shoot(Item item, Player player, EntitySource_ItemUse_WithAmmo source, Vector2 position, Vector2 velocity, int type, int damage, float knockback)
@@ -55,15 +71,15 @@ namespace CLVCompat.Systems
             }
         }
 
-        internal bool TryGetStrikeStateForProjectile(out bool strike)
+        internal bool TryGetStrikeStateForProjectile(Player player, out bool strike)
         {
-            if (!consumedThisUse)
+            if (player == null || lastConsumePlayer != player.whoAmI)
             {
                 strike = false;
                 return false;
             }
 
-            if (lastUseFrame == uint.MaxValue || Main.GameUpdateCount - lastUseFrame > 1u)
+            if (lastConsumeFrame == uint.MaxValue || Main.GameUpdateCount - lastConsumeFrame > 1u)
             {
                 strike = false;
                 return false;
@@ -78,18 +94,26 @@ namespace CLVCompat.Systems
             if (!ShouldProcess(item, player))
                 return;
 
-            if (consumedThisUse)
-                return;
+            if (lastConsumePlayer == player.whoAmI)
+            {
+                if (lastConsumeFrame == Main.GameUpdateCount)
+                    return;
+
+                if (lastConsumeItemTime >= 0 && player.itemTime >= 0 && player.itemTime < lastConsumeItemTime)
+                    return;
+
+                if (lastConsumeAnimation >= 0 && player.itemAnimation > 0 && player.itemAnimation < lastConsumeAnimation)
+                    return;
+            }
 
             bool strike = RogueStealthBridge.IsStrikeReady(player);
-            if (strike)
-                RogueStealthBridge.ConsumeStrike(player);
-            else
-                RogueStealthBridge.ConsumeNormalThrow(player);
+            RogueStealthBridge.ConsumeForAttack(player, strike);
 
-            consumedThisUse = true;
             lastStealthStrike = strike;
-            lastUseFrame = Main.GameUpdateCount;
+            lastConsumeFrame = Main.GameUpdateCount;
+            lastConsumePlayer = player.whoAmI;
+            lastConsumeAnimation = Math.Max(0, player.itemAnimation);
+            lastConsumeItemTime = Math.Max(0, player.itemTime);
 
             if (strike && item.shoot <= 0)
                 RogueStealthBridge.NotifyStealthStrikeFired(player, null);
@@ -97,7 +121,7 @@ namespace CLVCompat.Systems
 
         private static bool ShouldProcess(Item item, Player player)
         {
-            if (item?.ModItem is null || player == null)
+            if (item == null || player == null)
                 return false;
 
             if (!RogueGuards.IsFromLunarVeil(item))
@@ -127,14 +151,11 @@ namespace CLVCompat.Systems
             if (!TryResolveSource(source, out var player, out var item))
                 return;
 
-            if (item?.ModItem is null)
-                return;
-
             var global = item.GetGlobalItem<LV_RogueRuntime>();
             if (global == null)
                 return;
 
-            if (!global.TryGetStrikeStateForProjectile(out var strike))
+            if (!global.TryGetStrikeStateForProjectile(player, out var strike))
                 return;
 
             StealthStrike = strike;

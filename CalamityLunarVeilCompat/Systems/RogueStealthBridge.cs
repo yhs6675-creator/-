@@ -4,6 +4,7 @@ using System.Reflection;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ModLoader;
+using CLVCompat;
 
 namespace CLVCompat.Systems
 {
@@ -18,16 +19,17 @@ namespace CLVCompat.Systems
         private const float FallbackDamageBonusMin = 1f;
         private const float FallbackDamageBonusMax = 1.25f;
 
-        private static readonly string[] GetStealthCallNames = { "GetStealth", "GetRogueStealth" };
-        private static readonly string[] SetStealthCallNames = { "SetStealth", "SetRogueStealth" };
-        private static readonly string[] StrikeReadyCallNames = { "IsStealthStrikeReady", "IsStealthStrike" };
-        private static readonly string[] ConsumeThrowCallNames = { "ConsumeStealthForThrow", "ConsumeStealth" };
-        private static readonly string[] ConsumeStrikeCallNames = { "ConsumeStealthStrike", "ConsumeStealthForStrike" };
+        private static readonly string[] GetStealthCallNames = { "GetStealth", "GetCurrentStealth" };
+        private static readonly string[] GetStealthMaxCallNames = { "GetMaxStealth", "GetStealthCap" };
+        private static readonly string[] StrikeReadyCallNames = { "StealthStrikeAvailable", "CanStealthStrike" };
+        private static readonly string[] ConsumeCallNames = { "ConsumeStealth", "ConsumeStealthByAttacking", "UseStealth" };
         private static readonly string[] RogueDamageMultCallNames = { "GetRogueDamageMultiplier", "GetRogueDamageMult" };
         private static readonly string[] NotifyStrikeCallNames = { "NotifyStealthStrikeFired", "OnStealthStrike" };
 
         private static readonly string[] CalamityPlayerTypeNames =
         {
+            "CalamityMod.CalPlayer.CalamityPlayer, CalamityMod",
+            "CalamityMod.CalPlayer.CalamityPlayer, CalamityModPublic",
             "CalamityMod.CalamityPlayer, CalamityMod",
             "CalamityMod.CalamityPlayer, CalamityModPublic"
         };
@@ -35,10 +37,25 @@ namespace CLVCompat.Systems
         private static readonly string[] StealthFieldCandidates = { "stealth", "rogueStealth", "currentStealth" };
         private static readonly string[] MaxStealthFieldCandidates = { "maxStealth", "rogueStealthMax", "stealthMax" };
         private static readonly string[] StrikeReadyFieldCandidates = { "stealthStrikeReady", "stealthStrikeEnabled", "rogueStealthStrikeReady" };
+        private static readonly string[] StrikeReadyMethodCandidates = { "StealthStrikeAvailable", "CanStealthStrike" };
+        private static readonly string[] ConsumeMethodCandidates = { "ConsumeStealthByAttacking", "ConsumeStealth", "UseStealth" };
 
         private static readonly float[] FallbackCurrent = new float[Main.maxPlayers];
         private static readonly float[] FallbackMax = new float[Main.maxPlayers];
         private static readonly bool[] FallbackInitialized = new bool[Main.maxPlayers];
+
+        private static bool loggedCallStealthSuccess;
+        private static bool loggedCallStealthFailure;
+        private static bool loggedCallStealthMaxSuccess;
+        private static bool loggedCallStealthMaxFailure;
+        private static bool loggedCallStrikeSuccess;
+        private static bool loggedCallStrikeFailure;
+        private static bool loggedCallConsumeSuccess;
+        private static bool loggedCallConsumeFailure;
+        private static bool loggedReflectionStealthSuccess;
+        private static bool loggedReflectionStealthFailure;
+        private static bool loggedFallbackStealth;
+        private static bool loggedFallbackConsume;
 
         private static Mod cachedCalamity;
         private static bool calamityChecked;
@@ -60,6 +77,24 @@ namespace CLVCompat.Systems
             }
         }
 
+        private static void LogInfoOnce(ref bool flag, string message)
+        {
+            if (flag)
+                return;
+
+            flag = true;
+            ModContent.GetInstance<CalamityLunarVeilCompat>().Logger.Info(message);
+        }
+
+        private static void LogWarnOnce(ref bool flag, string message)
+        {
+            if (flag)
+                return;
+
+            flag = true;
+            ModContent.GetInstance<CalamityLunarVeilCompat>().Logger.Warn(message);
+        }
+
         public static bool TryGetStealth(Player player, out float current, out float max)
         {
             if (player == null)
@@ -69,10 +104,13 @@ namespace CLVCompat.Systems
                 return false;
             }
 
-            if (TryCallGetStealth(player, out current, out max))
+            bool callCurSuccess = TryCallGetStealthCurrent(player, out var callCur);
+            bool callMaxSuccess = TryCallGetStealthMax(player, out var callMax);
+
+            if (callCurSuccess && callMaxSuccess)
             {
-                current = Sanitize(current);
-                max = Sanitize(max);
+                current = Sanitize(callCur);
+                max = Sanitize(callMax);
                 UpdateFallback(player, current, max);
                 return true;
             }
@@ -86,7 +124,10 @@ namespace CLVCompat.Systems
             }
 
             if (TryFallbackGetStealth(player, out current, out max))
+            {
+                LogWarnOnce(ref loggedFallbackStealth, "[LVCompat] RogueStealthBridge falling back to cached stealth values.");
                 return true;
+            }
 
             current = 0f;
             max = 0f;
@@ -99,15 +140,6 @@ namespace CLVCompat.Systems
                 return false;
 
             value = Sanitize(value);
-
-            if (TryCallSetStealth(player, value))
-            {
-                if (TryGetStealth(player, out var curAfterCall, out var maxAfterCall))
-                    UpdateFallback(player, curAfterCall, maxAfterCall);
-                else
-                    UpdateFallback(player, value, Math.Max(value, 1f));
-                return true;
-            }
 
             if (TryReflectSetStealth(player, value))
             {
@@ -147,51 +179,48 @@ namespace CLVCompat.Systems
 
         public static float ConsumeNormalThrow(Player player)
         {
-            if (player == null)
-                return 0f;
-
-            if (TryCallConsume(player, ConsumeThrowCallNames, out var consumed))
-            {
-                AdjustFallbackDelta(player, consumed, false);
-                return consumed;
-            }
-
-            if (TryReflectConsumeNormal(player, out consumed))
-            {
-                AdjustFallbackDelta(player, consumed, false);
-                return consumed;
-            }
-
-            if (TryFallbackGetStealth(player, out var cur, out var max))
-            {
-                var drain = MathHelper.Clamp(max * FallbackNormalDrainRatio, 0f, cur);
-                SetFallback(player, cur - drain, max);
-                return drain;
-            }
-
-            return 0f;
+            return ConsumeForAttack(player, strike: false);
         }
 
         public static float ConsumeStrike(Player player)
         {
+            return ConsumeForAttack(player, strike: true);
+        }
+
+        public static float ConsumeForAttack(Player player, bool strike)
+        {
             if (player == null)
                 return 0f;
 
-            if (TryCallConsume(player, ConsumeStrikeCallNames, out var consumed))
+            TryFallbackGetStealth(player, out var beforeCur, out var beforeMax);
+
+            if (TryCallConsume(player, out var consumed))
             {
-                AdjustFallbackDelta(player, consumed, true);
+                bool updated = TryGetStealth(player, out var afterCur, out var afterMax);
+                if (updated)
+                {
+                    if (consumed <= 0f)
+                        consumed = Math.Max(0f, Sanitize(beforeCur) - afterCur);
+                    return consumed;
+                }
+
+                if (consumed <= 0f)
+                {
+                    var ratio = strike ? FallbackStrikeDrainRatio : FallbackNormalDrainRatio;
+                    consumed = MathHelper.Clamp(beforeMax * ratio, 0f, beforeCur);
+                }
+
+                AdjustFallbackDelta(player, consumed, strike);
                 return consumed;
             }
 
-            if (TryReflectConsumeStrike(player, out consumed))
-            {
-                AdjustFallbackDelta(player, consumed, true);
-                return consumed;
-            }
+            if (TryReflectConsume(player, strike, beforeCur, out var reflectConsumed))
+                return reflectConsumed;
 
             if (TryFallbackGetStealth(player, out var cur, out var max))
             {
-                var drain = MathHelper.Clamp(max * FallbackStrikeDrainRatio, 0f, cur);
+                LogWarnOnce(ref loggedFallbackConsume, "[LVCompat] RogueStealthBridge consuming stealth via cached fallback.");
+                var drain = MathHelper.Clamp(max * (strike ? FallbackStrikeDrainRatio : FallbackNormalDrainRatio), 0f, cur);
                 SetFallback(player, cur - drain, max);
                 return drain;
             }
@@ -253,10 +282,9 @@ namespace CLVCompat.Systems
 
         // ───────── Mod.Call helpers ─────────
 
-        private static bool TryCallGetStealth(Player player, out float current, out float max)
+        private static bool TryCallGetStealthCurrent(Player player, out float current)
         {
             current = 0f;
-            max = 0f;
             var calamity = Calamity;
             if (calamity == null)
                 return false;
@@ -266,38 +294,45 @@ namespace CLVCompat.Systems
                 try
                 {
                     var ret = calamity.Call(callName, player);
-                    if (TryUnpackPair(ret, out current, out max))
+                    if (TryUnpackNumber(ret, out current))
+                    {
+                        LogInfoOnce(ref loggedCallStealthSuccess, $"[LVCompat] RogueStealthBridge using Calamity Mod.Call '{callName}' for current stealth.");
                         return true;
+                    }
                 }
                 catch
                 {
                 }
             }
 
+            LogWarnOnce(ref loggedCallStealthFailure, "[LVCompat] RogueStealthBridge could not read current stealth via Calamity Mod.Call.");
             return false;
         }
 
-        private static bool TryCallSetStealth(Player player, float value)
+        private static bool TryCallGetStealthMax(Player player, out float max)
         {
+            max = 0f;
             var calamity = Calamity;
             if (calamity == null)
                 return false;
 
-            foreach (var callName in SetStealthCallNames)
+            foreach (var callName in GetStealthMaxCallNames)
             {
                 try
                 {
-                    var ret = calamity.Call(callName, player, value);
-                    if (ret is bool b)
-                        return b;
-
-                    return true;
+                    var ret = calamity.Call(callName, player);
+                    if (TryUnpackNumber(ret, out max))
+                    {
+                        LogInfoOnce(ref loggedCallStealthMaxSuccess, $"[LVCompat] RogueStealthBridge using Calamity Mod.Call '{callName}' for max stealth.");
+                        return true;
+                    }
                 }
                 catch
                 {
                 }
             }
 
+            LogWarnOnce(ref loggedCallStealthMaxFailure, "[LVCompat] RogueStealthBridge could not read max stealth via Calamity Mod.Call.");
             return false;
         }
 
@@ -316,6 +351,7 @@ namespace CLVCompat.Systems
                     if (ret is bool b)
                     {
                         ready = b;
+                        LogInfoOnce(ref loggedCallStrikeSuccess, $"[LVCompat] RogueStealthBridge using Calamity Mod.Call '{callName}' for stealth strike availability.");
                         return true;
                     }
                 }
@@ -324,27 +360,32 @@ namespace CLVCompat.Systems
                 }
             }
 
+            LogWarnOnce(ref loggedCallStrikeFailure, "[LVCompat] RogueStealthBridge could not query stealth strike availability via Calamity Mod.Call.");
             return false;
         }
 
-        private static bool TryCallConsume(Player player, IReadOnlyList<string> callNames, out float consumed)
+        private static bool TryCallConsume(Player player, out float consumed)
         {
             consumed = 0f;
             var calamity = Calamity;
             if (calamity == null)
                 return false;
 
-            foreach (var callName in callNames)
+            foreach (var callName in ConsumeCallNames)
             {
                 try
                 {
                     var ret = calamity.Call(callName, player);
                     if (TryUnpackNumber(ret, out consumed))
+                    {
+                        LogInfoOnce(ref loggedCallConsumeSuccess, $"[LVCompat] RogueStealthBridge using Calamity Mod.Call '{callName}' for stealth consumption.");
                         return true;
+                    }
 
                     if (ret is bool && TryFallbackGetStealth(player, out var cur, out var max))
                     {
                         consumed = MathHelper.Clamp(max - cur, 0f, max);
+                        LogInfoOnce(ref loggedCallConsumeSuccess, $"[LVCompat] RogueStealthBridge using Calamity Mod.Call '{callName}' for stealth consumption.");
                         return true;
                     }
                 }
@@ -353,6 +394,7 @@ namespace CLVCompat.Systems
                 }
             }
 
+            LogWarnOnce(ref loggedCallConsumeFailure, "[LVCompat] RogueStealthBridge could not consume stealth via Calamity Mod.Call.");
             return false;
         }
 
@@ -376,55 +418,6 @@ namespace CLVCompat.Systems
                 }
             }
 
-            return false;
-        }
-
-        private static bool TryUnpackPair(object value, out float a, out float b)
-        {
-            if (value is ValueTuple<float, float> ft)
-            {
-                a = ft.Item1;
-                b = ft.Item2;
-                return true;
-            }
-
-            if (value is ValueTuple<double, double> dt)
-            {
-                a = (float)dt.Item1;
-                b = (float)dt.Item2;
-                return true;
-            }
-
-            if (value is Tuple<float, float> tf)
-            {
-                a = tf.Item1;
-                b = tf.Item2;
-                return true;
-            }
-
-            if (value is Tuple<double, double> td)
-            {
-                a = (float)td.Item1;
-                b = (float)td.Item2;
-                return true;
-            }
-
-            if (value is float[] fa && fa.Length >= 2)
-            {
-                a = fa[0];
-                b = fa[1];
-                return true;
-            }
-
-            if (value is double[] da && da.Length >= 2)
-            {
-                a = (float)da[0];
-                b = (float)da[1];
-                return true;
-            }
-
-            a = 0f;
-            b = 0f;
             return false;
         }
 
@@ -457,10 +450,14 @@ namespace CLVCompat.Systems
             current = 0f;
             max = 0f;
             if (!TryResolveReflection(player, out var cache, out var instance))
+            {
+                LogWarnOnce(ref loggedReflectionStealthFailure, "[LVCompat] RogueStealthBridge could not resolve Calamity reflection for stealth values.");
                 return false;
+            }
 
             current = Sanitize(cache.ReadStealth(instance));
             max = Sanitize(cache.ReadMaxStealth(instance));
+            LogInfoOnce(ref loggedReflectionStealthSuccess, "[LVCompat] RogueStealthBridge using Calamity reflection for stealth values.");
             return true;
         }
 
@@ -481,6 +478,9 @@ namespace CLVCompat.Systems
             if (!TryResolveReflection(player, out var cache, out var instance))
                 return false;
 
+            if (cache.InvokeStrikeReady(instance, out ready))
+                return true;
+
             if (cache.StrikeReadyField != null)
             {
                 ready = cache.ReadStrikeReady(instance);
@@ -497,32 +497,43 @@ namespace CLVCompat.Systems
             return false;
         }
 
-        private static bool TryReflectConsumeNormal(Player player, out float consumed)
+        private static bool TryReflectConsume(Player player, bool strike, float beforeCur, out float consumed)
         {
             consumed = 0f;
             if (!TryResolveReflection(player, out var cache, out var instance))
                 return false;
 
+            if (cache.ConsumeMethod != null)
+            {
+                try
+                {
+                    var ret = cache.InvokeConsume(instance);
+                    if (!TryUnpackNumber(ret, out consumed))
+                        consumed = 0f;
+                }
+                catch
+                {
+                    consumed = 0f;
+                }
+
+                var afterCur = Sanitize(cache.ReadStealth(instance));
+                var afterMax = Sanitize(cache.ReadMaxStealth(instance));
+                UpdateFallback(player, afterCur, afterMax);
+
+                if (consumed <= 0f)
+                    consumed = Math.Max(0f, Sanitize(beforeCur) - afterCur);
+
+                return true;
+            }
+
             var cur = Sanitize(cache.ReadStealth(instance));
             var max = Sanitize(cache.ReadMaxStealth(instance));
-            var drain = MathHelper.Clamp(max * FallbackNormalDrainRatio, 0f, cur);
+            var ratio = strike ? FallbackStrikeDrainRatio : FallbackNormalDrainRatio;
+            var drain = MathHelper.Clamp(max * ratio, 0f, cur);
             cache.WriteStealth(instance, cur - drain);
             cache.WriteStrikeReady(instance, false);
+            UpdateFallback(player, cur - drain, max);
             consumed = drain;
-            return true;
-        }
-
-        private static bool TryReflectConsumeStrike(Player player, out float consumed)
-        {
-            consumed = 0f;
-            if (!TryResolveReflection(player, out var cache, out var instance))
-                return false;
-
-            var cur = Sanitize(cache.ReadStealth(instance));
-            var max = Sanitize(cache.ReadMaxStealth(instance));
-            consumed = MathHelper.Clamp(cur, 0f, Math.Max(max, 0f));
-            cache.WriteStealth(instance, Math.Max(0f, cur - consumed));
-            cache.WriteStrikeReady(instance, false);
             return true;
         }
 
@@ -569,6 +580,8 @@ namespace CLVCompat.Systems
             public FieldInfo StealthField { get; private set; }
             public FieldInfo MaxStealthField { get; private set; }
             public FieldInfo StrikeReadyField { get; private set; }
+            public MethodInfo StrikeReadyMethod { get; private set; }
+            public MethodInfo ConsumeMethod { get; private set; }
             private MethodInfo getModPlayerGeneric;
 
             private ReflectionCache()
@@ -587,6 +600,8 @@ namespace CLVCompat.Systems
                     cache.StealthField = cache.FindField(type, StealthFieldCandidates);
                     cache.MaxStealthField = cache.FindField(type, MaxStealthFieldCandidates);
                     cache.StrikeReadyField = cache.FindField(type, StrikeReadyFieldCandidates);
+                    cache.StrikeReadyMethod = cache.FindMethod(type, StrikeReadyMethodCandidates);
+                    cache.ConsumeMethod = cache.FindMethod(type, ConsumeMethodCandidates);
                     cache.getModPlayerGeneric = FindGenericGetter();
 
                     if (cache.StealthField != null && cache.getModPlayerGeneric != null)
@@ -627,6 +642,18 @@ namespace CLVCompat.Systems
                 return null;
             }
 
+            private MethodInfo FindMethod(Type type, IEnumerable<string> candidates)
+            {
+                foreach (var name in candidates)
+                {
+                    var method = type.GetMethod(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+                    if (method != null)
+                        return method;
+                }
+
+                return null;
+            }
+
             public object FetchCalamityPlayer(Player player)
             {
                 if (PlayerType == null || getModPlayerGeneric == null)
@@ -662,6 +689,43 @@ namespace CLVCompat.Systems
                     return false;
 
                 return Convert.ToBoolean(StrikeReadyField.GetValue(instance));
+            }
+
+            public bool InvokeStrikeReady(object instance, out bool ready)
+            {
+                ready = false;
+                if (StrikeReadyMethod == null)
+                    return false;
+
+                try
+                {
+                    var ret = StrikeReadyMethod.Invoke(instance, Array.Empty<object>());
+                    if (ret is bool b)
+                    {
+                        ready = b;
+                        return true;
+                    }
+                }
+                catch
+                {
+                }
+
+                return false;
+            }
+
+            public object InvokeConsume(object instance)
+            {
+                if (ConsumeMethod == null)
+                    return null;
+
+                try
+                {
+                    return ConsumeMethod.Invoke(instance, Array.Empty<object>());
+                }
+                catch
+                {
+                    return null;
+                }
             }
 
             public void WriteStealth(object instance, float value)
