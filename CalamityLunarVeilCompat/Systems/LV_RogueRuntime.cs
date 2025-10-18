@@ -124,9 +124,6 @@ namespace CLVCompat.Systems
             if (item == null || player == null)
                 return false;
 
-            if (!RogueGuards.IsFromLunarVeil(item))
-                return false;
-
             if (!RogueGuards.TryGetCalamityRogue(out var rogue))
                 return false;
 
@@ -135,6 +132,9 @@ namespace CLVCompat.Systems
 
             if (RogueGuards.TryGetCurrentThrowState(item, out var isThrow))
                 return isThrow;
+
+            if (!RogueGuards.IsFromLunarVeil(item))
+                return false;
 
             return LVRogueRegistry.IsRegistered(item.type);
         }
