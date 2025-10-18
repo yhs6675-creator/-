@@ -102,8 +102,8 @@ namespace CLVCompat.Systems
 
             if (TryCallSetStealth(player, value))
             {
-                if (TryGetStealth(player, out var cur, out var max))
-                    UpdateFallback(player, cur, max);
+                if (TryGetStealth(player, out var curAfterCall, out var maxAfterCall))
+                    UpdateFallback(player, curAfterCall, maxAfterCall);
                 else
                     UpdateFallback(player, value, Math.Max(value, 1f));
                 return true;
@@ -111,17 +111,17 @@ namespace CLVCompat.Systems
 
             if (TryReflectSetStealth(player, value))
             {
-                if (TryGetStealth(player, out var cur, out var max))
-                    UpdateFallback(player, cur, max);
+                if (TryGetStealth(player, out var curAfterReflect, out var maxAfterReflect))
+                    UpdateFallback(player, curAfterReflect, maxAfterReflect);
                 else
                     UpdateFallback(player, value, Math.Max(value, 1f));
                 return true;
             }
 
-            if (TryFallbackGetStealth(player, out _, out var max))
+            if (TryFallbackGetStealth(player, out _, out var fallbackMax))
             {
-                value = MathHelper.Clamp(value, 0f, Math.Max(max, 1f));
-                SetFallback(player, value, Math.Max(max, 1f));
+                value = MathHelper.Clamp(value, 0f, Math.Max(fallbackMax, 1f));
+                SetFallback(player, value, Math.Max(fallbackMax, 1f));
                 return true;
             }
 
