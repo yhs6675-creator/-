@@ -57,17 +57,10 @@ namespace CLVCompat.Systems
             if (!ShouldProcess(item, player))
                 return;
 
-            if (RogueStealthBridge.TryGetRogueMult(player, out var mult))
-            {
-                if (mult > 0f)
-                    damage *= mult;
-                return;
-            }
-
             if (RogueStealthBridge.TryGetStealth(player, out var cur, out var max) && max > 0f)
             {
                 var ratio = MathHelper.Clamp(cur / max, 0f, 1f);
-                damage *= RogueStealthBridge.EvalFallbackRogueMult(ratio);
+                damage *= 1f + 0.25f * ratio;
             }
         }
 
