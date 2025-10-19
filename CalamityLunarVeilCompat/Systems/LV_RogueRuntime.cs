@@ -92,6 +92,13 @@ namespace CLVCompat.Systems
                 if (lastConsumeFrame == Main.GameUpdateCount)
                     return;
 
+                if (lastConsumeItemTime >= 0 && lastConsumeAnimation >= 0 &&
+                    player.itemTime == lastConsumeItemTime &&
+                    player.itemAnimation == lastConsumeAnimation)
+                {
+                    return;
+                }
+
                 if (lastConsumeItemTime >= 0 && player.itemTime >= 0 && player.itemTime < lastConsumeItemTime)
                     return;
 

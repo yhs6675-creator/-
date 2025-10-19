@@ -1,7 +1,0 @@
-author = bacon
-version = 0.2.7
-displayName = Calamity + Lunar Veil Compat (Lite)
-hideCode = false
-ModReferences = CalamityMod, Stellamod
-LoadAfter = CalamityMod, Stellamod
-Side = Both
