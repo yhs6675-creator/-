@@ -159,15 +159,36 @@ namespace CLVCompat.Systems
 
         internal static bool ShouldHandleItem(Item item, Player player, out bool isProblemItem)
         {
-            isProblemItem = ProblemWeaponRegistry.IsProblemAnyItem(item);
-            if (isProblemItem)
+            isProblemItem = false;
+
+            if (item == null || player == null)
+                return false;
+
+            if (ProblemWeaponRegistry.IsProblemAnyItem(item) && IsSwapActiveOrRogue(item, player))
+            {
+                isProblemItem = true;
                 return true;
+            }
 
             if (!ShouldProcess(item, player))
                 return false;
 
             var modName = item.ModItem?.Mod?.Name;
             return !string.Equals(modName, "CalamityMod", StringComparison.OrdinalIgnoreCase);
+        }
+
+        internal static bool IsSwapActiveOrRogue(Item item, Player player)
+        {
+            if (item == null || player == null)
+                return false;
+
+            if (RogueGuards.TryGetCalamityRogue(out var rogue) && item.DamageType == rogue)
+                return true;
+
+            if (RogueGuards.TryGetCurrentThrowState(item, out bool isThrow) && isThrow)
+                return true;
+
+            return false;
         }
 
         internal bool HasBaseDamageBeenScaled => baseDamageScaled;
@@ -212,8 +233,47 @@ namespace CLVCompat.Systems
                     item = player?.HeldItem;
                 }
             }
+            else if (item == null && projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
+            {
+                item = Main.player[projectile.owner]?.HeldItem;
+            }
 
-            if (player == null || item == null)
+            if (player == null)
+                return;
+
+            item ??= player?.HeldItem;
+
+            bool forcedProblem = false;
+
+            if (item != null && ProblemWeaponRegistry.IsProblemAnyItem(item))
+                forcedProblem = true;
+
+            if (!forcedProblem && ProblemWeaponRegistry.IsProblemProjectile(projectile))
+                forcedProblem = true;
+
+            if (forcedProblem)
+            {
+                IsRogueShot = true;
+
+                if (item != null)
+                {
+                    var globalTagged = item.GetGlobalItem<LV_RogueRuntime>();
+                    if (globalTagged != null)
+                    {
+                        BaseDamageScaledAtFire = globalTagged.HasBaseDamageBeenScaled;
+
+                        if (globalTagged.TryGetStrikeStateForProjectile(player, out var strikeFromUse))
+                            WasStrikeReadyAtFire = strikeFromUse;
+                    }
+                }
+
+                if (!WasStrikeReadyAtFire)
+                    WasStrikeReadyAtFire = RogueStealthBridge.IsStrikeReady(player);
+
+                return;
+            }
+
+            if (item == null)
                 return;
 
             if (!LV_RogueRuntime.ShouldHandleItem(item, player, out var isProblemItem))
@@ -236,17 +296,19 @@ namespace CLVCompat.Systems
 
         public override void ModifyHitNPC(Projectile projectile, NPC target, ref NPC.HitModifiers modifiers)
         {
-            Player player = null;
-
-            if (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
-                player = Main.player[projectile.owner];
-
-            bool forceByWhitelist = player?.HeldItem != null && ProblemWeaponRegistry.IsProblemAnyItem(player.HeldItem);
-
-            if (!(IsRogueShot || forceByWhitelist))
-                return;
+            var player = (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
+                ? Main.player[projectile.owner]
+                : null;
 
             if (player == null)
+                return;
+
+            var held = player.HeldItem;
+            bool forceByWhitelist = held != null
+                && ProblemWeaponRegistry.IsProblemAnyItem(held)
+                && LV_RogueRuntime.IsSwapActiveOrRogue(held, player);
+
+            if (!(IsRogueShot || forceByWhitelist))
                 return;
 
             if (BaseDamageScaledAtFire)
@@ -261,17 +323,19 @@ namespace CLVCompat.Systems
             if (ConsumedOnce)
                 return;
 
-            Player player = null;
-
-            if (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
-                player = Main.player[projectile.owner];
-
-            bool forceByWhitelist = player?.HeldItem != null && ProblemWeaponRegistry.IsProblemAnyItem(player.HeldItem);
-
-            if (!(IsRogueShot || forceByWhitelist))
-                return;
+            var player = (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
+                ? Main.player[projectile.owner]
+                : null;
 
             if (player == null)
+                return;
+
+            var held = player.HeldItem;
+            bool forceByWhitelist = held != null
+                && ProblemWeaponRegistry.IsProblemAnyItem(held)
+                && LV_RogueRuntime.IsSwapActiveOrRogue(held, player);
+
+            if (!(IsRogueShot || forceByWhitelist))
                 return;
 
             var strike = WasStrikeReadyAtFire || RogueStealthBridge.IsStrikeReady(player);

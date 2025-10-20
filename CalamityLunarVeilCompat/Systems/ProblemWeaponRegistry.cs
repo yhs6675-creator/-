@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Terraria;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace CLVCompat.Systems
@@ -12,8 +13,8 @@ namespace CLVCompat.Systems
         {
             "Scatterbombs",
             "Zenovias Pikpik Jar",
-            "Rogue Lgniter Cards MKII",
-            "Rogue lgniter Cards",
+            "Rogue Igniter Cards MKII",
+            "Rogue Igniter Cards",
             "Rogue Cards",
             "Hyus",
             "Ivythorn Shuriken",
@@ -44,10 +45,16 @@ namespace CLVCompat.Systems
             "The Irradiaspear",
             "Burning Angel",
             "Prismatic Cryadia Balls",
+            "Poisoned Angel",
+            "Hit me",
+            "Vulcan Breaker",
         };
 
         private static readonly HashSet<int> ThrowItemTypeIds = new();
         private static readonly HashSet<int> SwappedItemTypeIds = new();
+        private static readonly HashSet<int> ProjectileTypeIds = new();
+        private static readonly HashSet<string> ProjectileFullNames = new(StringComparer.OrdinalIgnoreCase);
+
         private static bool initialized;
 
         internal static void Initialize()
@@ -79,7 +86,10 @@ namespace CLVCompat.Systems
 
                     var display = item.ModItem.DisplayName?.Value ?? item.Name ?? string.Empty;
                     if (normalizedNames.Contains(Normalize(display)))
+                    {
                         bucket.Add(type);
+                        RegisterResolvedItem(item);
+                    }
                 }
                 catch
                 {
@@ -102,7 +112,7 @@ namespace CLVCompat.Systems
                 .ToLowerInvariant();
         }
 
-        private static bool MatchesDisplayNameRuntime(Item item, IEnumerable<string> names)
+        private static bool MatchesDisplayNameRuntime(Item item, IEnumerable<string> names, HashSet<int> bucket)
         {
             if (item == null)
                 return false;
@@ -124,7 +134,11 @@ namespace CLVCompat.Systems
                     continue;
 
                 if (normalizedDisplay.Contains(normalizedTarget) || normalizedTarget.Contains(normalizedDisplay))
+                {
+                    bucket.Add(item.type);
+                    RegisterResolvedItem(item);
                     return true;
+                }
 
                 var corrected = normalizedTarget
                     .Replace("lgniter", "igniter")
@@ -132,19 +146,74 @@ namespace CLVCompat.Systems
                     .Replace("starring", "star");
 
                 if (normalizedDisplay.Contains(corrected))
+                {
+                    bucket.Add(item.type);
+                    RegisterResolvedItem(item);
                     return true;
+                }
             }
 
             return false;
         }
 
         internal static bool IsProblemThrowItem(Item item)
-            => item != null && (ThrowItemTypeIds.Contains(item.type) || MatchesDisplayNameRuntime(item, DisplayNamesThrow));
+            => item != null && (ThrowItemTypeIds.Contains(item.type) || MatchesDisplayNameRuntime(item, DisplayNamesThrow, ThrowItemTypeIds));
 
         internal static bool IsProblemSwappedItem(Item item)
-            => item != null && (SwappedItemTypeIds.Contains(item.type) || MatchesDisplayNameRuntime(item, DisplayNamesSwapped));
+            => item != null && (SwappedItemTypeIds.Contains(item.type) || MatchesDisplayNameRuntime(item, DisplayNamesSwapped, SwappedItemTypeIds));
 
         internal static bool IsProblemAnyItem(Item item)
             => IsProblemThrowItem(item) || IsProblemSwappedItem(item);
+
+        internal static bool IsProblemProjectile(Projectile projectile)
+        {
+            if (projectile == null)
+                return false;
+
+            if (ProjectileTypeIds.Contains(projectile.type))
+                return true;
+
+            var modProj = projectile.ModProjectile;
+            if (modProj?.Mod != null)
+            {
+                var fullName = $"{modProj.Mod.Name}/{modProj.Name}";
+                if (ProjectileFullNames.Contains(fullName))
+                {
+                    RegisterResolvedProjectile(projectile);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void RegisterResolvedItem(Item item)
+        {
+            if (item == null)
+                return;
+
+            if (item.shoot > ProjectileID.None && item.shoot < ProjectileLoader.ProjectileCount)
+            {
+                ProjectileTypeIds.Add(item.shoot);
+                var sample = ContentSamples.ProjectilesByType[item.shoot];
+                var modProj = sample.ModProjectile;
+                if (modProj?.Mod != null)
+                {
+                    ProjectileFullNames.Add($"{modProj.Mod.Name}/{modProj.Name}");
+                }
+            }
+        }
+
+        private static void RegisterResolvedProjectile(Projectile projectile)
+        {
+            if (projectile == null)
+                return;
+
+            ProjectileTypeIds.Add(projectile.type);
+
+            var modProj = projectile.ModProjectile;
+            if (modProj?.Mod != null)
+                ProjectileFullNames.Add($"{modProj.Mod.Name}/{modProj.Name}");
+        }
     }
 }
