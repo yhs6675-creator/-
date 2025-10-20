@@ -24,12 +24,6 @@ namespace CLVCompat.Systems
             if (LVRogueRegistry.IsRegistered(item.type))
                 return;
 
-            if (!RogueGuards.IsFromLunarVeil(item))
-            {
-                RogueGuards.RestoreOriginalDamageClass(item);
-                return;
-            }
-
             bool shouldForce = ShouldForceRogue(item);
 
             if (shouldForce)
