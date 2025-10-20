@@ -16,6 +16,7 @@ namespace CLVCompat.Systems
         private int lastConsumePlayer = -1;
         private int lastConsumeAnimation = -1;
         private int lastConsumeItemTime = -1;
+        private bool baseDamageScaled;
 
         public override bool InstancePerEntity => true;
 
@@ -26,6 +27,7 @@ namespace CLVCompat.Systems
             lastConsumePlayer = -1;
             lastConsumeAnimation = -1;
             lastConsumeItemTime = -1;
+            baseDamageScaled = false;
             return base.CanUseItem(item, player);
         }
 
@@ -58,11 +60,23 @@ namespace CLVCompat.Systems
             if (!ShouldProcess(item, player))
                 return;
 
-            if (RogueStealthBridge.TryGetStealth(player, out var cur, out var max) && max > 0f)
+            if (TryGetStealthMultiplier(player, out var multiplier))
             {
-                var ratio = MathHelper.Clamp(cur / max, 0f, 1f);
-                damage *= 1f + 0.25f * ratio;
+                damage *= multiplier;
+                baseDamageScaled = true;
             }
+        }
+
+        public override void ModifyHitNPC(Item item, Player player, NPC target, ref NPC.HitModifiers modifiers)
+        {
+            if (!ShouldProcess(item, player))
+                return;
+
+            if (baseDamageScaled)
+                return;
+
+            if (TryGetStealthMultiplier(player, out var multiplier))
+                modifiers.FinalDamage *= multiplier;
         }
 
         internal bool TryGetStrikeStateForProjectile(Player player, out bool strike)
@@ -120,28 +134,28 @@ namespace CLVCompat.Systems
                 RogueStealthBridge.NotifyStealthStrikeFired(player, null);
         }
 
-        private static bool ShouldProcess(Item item, Player player)
+        internal static bool ShouldProcess(Item item, Player player)
         {
             if (item == null || player == null)
-                return false;
-
-            if (!RogueGuards.IsFromLunarVeil(item))
                 return false;
 
             if (!RogueGuards.TryGetCalamityRogue(out var rogue))
                 return false;
 
-            if (item.DamageType != rogue)
+            return item.DamageType == rogue;
+        }
+
+        internal bool HasBaseDamageBeenScaled => baseDamageScaled;
+
+        internal static bool TryGetStealthMultiplier(Player player, out float multiplier)
+        {
+            multiplier = 1f;
+
+            if (!RogueStealthBridge.TryGetStealth(player, out var cur, out var max) || max <= 0f)
                 return false;
 
-            if (RogueGuards.TryGetCurrentThrowState(item, out var isThrow))
-                return isThrow;
-
-            if (LVRogueRegistry.IsRegistered(item.type))
-                return true;
-
-            // 확정 신호가 없어도 이미 RogueDamageClass로 강제 전환된 루나베일 무기라면
-            // 스텔스 소비/보정이 빠지지 않도록 기본적으로 처리한다.
+            var ratio = MathHelper.Clamp(cur / max, 0f, 1f);
+            multiplier = 1f + 0.25f * ratio;
             return true;
         }
     }
@@ -151,9 +165,12 @@ namespace CLVCompat.Systems
         public override bool InstancePerEntity => true;
 
         public bool StealthStrike { get; private set; }
+        private bool consumedStealthOnHit;
 
         public override void OnSpawn(Projectile projectile, IEntitySource source)
         {
+            consumedStealthOnHit = false;
+
             if (!TryResolveSource(source, out var player, out var item))
                 return;
 
@@ -167,6 +184,53 @@ namespace CLVCompat.Systems
             StealthStrike = strike;
             if (strike)
                 RogueStealthBridge.NotifyStealthStrikeFired(player, projectile);
+        }
+
+        public override void ModifyHitNPC(Projectile projectile, NPC target, ref NPC.HitModifiers modifiers)
+        {
+            if (projectile.owner < 0 || projectile.owner >= Main.maxPlayers)
+                return;
+
+            var player = Main.player[projectile.owner];
+            if (player == null)
+                return;
+
+            var item = player.HeldItem;
+            if (!LV_RogueRuntime.ShouldProcess(item, player))
+                return;
+
+            var global = item.GetGlobalItem<LV_RogueRuntime>();
+            if (global == null || global.HasBaseDamageBeenScaled)
+                return;
+
+            if (LV_RogueRuntime.TryGetStealthMultiplier(player, out var multiplier))
+                modifiers.FinalDamage *= multiplier;
+        }
+
+        public override void OnHitNPC(Projectile projectile, NPC target, NPC.HitInfo hit, int damageDone)
+        {
+            if (consumedStealthOnHit)
+                return;
+
+            if (projectile.owner < 0 || projectile.owner >= Main.maxPlayers)
+                return;
+
+            var player = Main.player[projectile.owner];
+            if (player == null)
+                return;
+
+            var item = player.HeldItem;
+            if (!LV_RogueRuntime.ShouldProcess(item, player))
+                return;
+
+            var strike = StealthStrike || RogueStealthBridge.IsStrikeReady(player);
+            RogueStealthBridge.ConsumeForAttack(player, strike);
+
+            if (strike && !StealthStrike)
+                RogueStealthBridge.NotifyStealthStrikeFired(player, projectile);
+
+            StealthStrike |= strike;
+            consumedStealthOnHit = true;
         }
 
         private static bool TryResolveSource(IEntitySource source, out Player player, out Item item)

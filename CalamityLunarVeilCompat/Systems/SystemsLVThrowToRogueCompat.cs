@@ -16,7 +16,7 @@ namespace CLVCompat.Systems
             if (!LVRogueRegistry.IsRegistered(item.type))
                 return;
 
-            if (ModContent.TryFind<DamageClass>("CalamityMod/RogueDamageClass", out var rogue))
+            if (RogueGuards.TryGetCalamityRogue(out var rogue))
             {
                 item.DamageType = rogue;
             }

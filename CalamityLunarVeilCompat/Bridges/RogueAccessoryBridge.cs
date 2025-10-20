@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ModLoader;
+using CLVCompat.Systems;
 
 namespace CalamityLunarVeilCompat.Bridges
 {
@@ -9,7 +10,8 @@ namespace CalamityLunarVeilCompat.Bridges
     {
         private static readonly HashSet<string> AllowedMods = new()
         {
-            "LunarVielmod",
+            "LunarVeilMod",
+            "LunarVeilLegacy",
             "Stellamod",
         };
 
@@ -38,7 +40,7 @@ namespace CalamityLunarVeilCompat.Bridges
             if (!item.accessory) return;
 
             // Calamity 필수 의존
-            if (!ModContent.TryFind<DamageClass>("CalamityMod", "RogueDamageClass", out var rogueDC))
+            if (!RogueGuards.TryGetCalamityRogue(out var rogueDC))
                 return;
 
             var mi = item.ModItem;
@@ -76,7 +78,7 @@ namespace CalamityLunarVeilCompat.Bridges
 
         public override void ModifyShootStats(Item item, ref Vector2 position, ref Vector2 velocity, ref int type, ref int damage, ref float knockback)
         {
-            if (!ModContent.TryFind<DamageClass>("CalamityMod", "RogueDamageClass", out var rogueDC))
+            if (!RogueGuards.TryGetCalamityRogue(out var rogueDC))
                 return;
 
             if (item.DamageType == rogueDC && rogueProjMult != 1f)
