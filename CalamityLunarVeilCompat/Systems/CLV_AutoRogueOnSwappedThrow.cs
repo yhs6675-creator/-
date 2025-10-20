@@ -3,7 +3,6 @@
 // 휴리스틱(이름/툴팁 토큰) 제거. 오로지 확정 신호(API or ThrowingDamageClass 카운트)만 사용.
 
 using System;
-using System.Linq;
 using System.Reflection;
 using Terraria;
 using Terraria.ModLoader;
@@ -13,8 +12,6 @@ namespace CLVCompat.Systems
     public class CLV_AutoRogueOnSwappedThrow : GlobalItem
     {
         public override bool InstancePerEntity => false;
-
-        private static readonly string[] LVModNames = { "LunarVeilMod","LunarVeilLegacy","LunarVielmod","LunarViel" };
 
         public override void HoldItem(Item item, Player player) => TryAutoRogue(item);
         public override void UpdateInventory(Item item, Player player) => TryAutoRogue(item);
@@ -26,8 +23,7 @@ namespace CLVCompat.Systems
                 return;
 
             // 루나베일 소속 아이템만 대상
-            var owner = item.ModItem?.Mod?.Name;
-            if (owner == null || !LVModNames.Contains(owner, StringComparer.OrdinalIgnoreCase))
+            if (!RogueGuards.IsFromLunarVeil(item))
                 return;
 
             // 지금 '투척' 상태인지 확정 신호로만 판정
@@ -63,7 +59,7 @@ namespace CLVCompat.Systems
         private static bool TryAskLunarVeilByCall(Item item, out bool isThrow)
         {
             isThrow = false;
-            foreach (var name in LVModNames)
+            foreach (var name in RogueGuards.EnumerateLunarVeilModIds())
             {
                 var lv = ModLoader.GetMod(name);
                 if (lv == null) continue;
@@ -85,7 +81,7 @@ namespace CLVCompat.Systems
         {
             // 루나베일이 자체 ThrowingDamageClass를 노출한다면 그것만 신뢰
             // 후보 경로를 시도: "<Mod>/ThrowingDamageClass", "<Mod>/LVThrowingDamageClass" 등
-            foreach (var name in LVModNames)
+            foreach (var name in RogueGuards.EnumerateLunarVeilModIds())
             {
                 if (ModContent.TryFind<DamageClass>($"{name}/ThrowingDamageClass", out var lvThrow))
                     if (item.CountsAsClass(lvThrow)) return true;

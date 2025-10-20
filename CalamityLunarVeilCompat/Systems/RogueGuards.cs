@@ -15,7 +15,8 @@ namespace CLVCompat.Systems
             "LunarVeilMod",
             "LunarVeilLegacy",
             "LunarVielmod",
-            "LunarViel"
+            "LunarViel",
+            "Stellamod",
         };
 
         private static readonly HashSet<string> LunarVeilModIdSet = new(StringComparer.OrdinalIgnoreCase);

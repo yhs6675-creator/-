@@ -37,12 +37,6 @@ namespace CLVCompat.Systems
             // 필요 시 클래스명 추가
         };
 
-        // 루나베일 모드명 후보 (실제 명칭에 맞춰 보강 가능)
-        private static readonly string[] LunarVeilModNames =
-        {
-            "LunarVeilMod","LunarVeilLegacy","LunarVielmod","LunarViel"
-        };
-
         public override void PostSetupContent()
         {
             // 칼라미티 Rogue가 없으면 아무것도 안 함
@@ -50,7 +44,7 @@ namespace CLVCompat.Systems
                 return;
 
             // 루나베일이 하나도 로드되지 않았다면 조용히 스킵
-            bool lunarLoaded = LunarVeilModNames.Any(ModLoader.HasMod);
+            bool lunarLoaded = RogueGuards.EnumerateLunarVeilModIds().Any(ModLoader.HasMod);
             if (!lunarLoaded)
             {
                 Mod.Logger.Warn("[LVCompat] Lunar Veil not detected — skipping Rogue registration.");
@@ -104,7 +98,7 @@ namespace CLVCompat.Systems
         private static int ResolveExternalItemType(string className)
         {
             // 안전판: TryFind는 대상 모드가 없으면 false를 반환할 뿐, 절대 예외를 던지지 않음.
-            foreach (var modName in LunarVeilModNames)
+            foreach (var modName in RogueGuards.EnumerateLunarVeilModIds())
             {
                 if (ModContent.TryFind<ModItem>($"{modName}/{className}", out var mi))
                     return mi.Type;
