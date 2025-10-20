@@ -225,17 +225,10 @@ namespace CLVCompat.Systems
             Player player = null;
             Item item = null;
 
-            if (!TryResolveSource(source, out player, out item))
+            if (!TryResolveSource(source, out player, out item) && projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
             {
-                if (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
-                {
-                    player = Main.player[projectile.owner];
-                    item = player?.HeldItem;
-                }
-            }
-            else if (item == null && projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
-            {
-                item = Main.player[projectile.owner]?.HeldItem;
+                player = Main.player[projectile.owner];
+                item = player?.HeldItem;
             }
 
             if (player == null)
@@ -243,15 +236,27 @@ namespace CLVCompat.Systems
 
             item ??= player?.HeldItem;
 
-            bool forcedProblem = false;
-
             if (item != null && ProblemWeaponRegistry.IsProblemAnyItem(item))
-                forcedProblem = true;
+            {
+                IsRogueShot = true;
 
-            if (!forcedProblem && ProblemWeaponRegistry.IsProblemProjectile(projectile))
-                forcedProblem = true;
+                var globalTagged = item.GetGlobalItem<LV_RogueRuntime>();
+                if (globalTagged != null)
+                {
+                    BaseDamageScaledAtFire = globalTagged.HasBaseDamageBeenScaled;
 
-            if (forcedProblem)
+                    if (globalTagged.TryGetStrikeStateForProjectile(player, out var strikeFromUse))
+                        WasStrikeReadyAtFire = strikeFromUse;
+                }
+
+                if (!WasStrikeReadyAtFire)
+                    WasStrikeReadyAtFire = RogueStealthBridge.IsStrikeReady(player);
+
+                ProblemWeaponRegistry.AddProjectileTypeRuntime(projectile.type);
+                return;
+            }
+
+            if (ProblemWeaponRegistry.IsProblemProjectile(projectile))
             {
                 IsRogueShot = true;
 
@@ -269,7 +274,6 @@ namespace CLVCompat.Systems
 
                 if (!WasStrikeReadyAtFire)
                     WasStrikeReadyAtFire = RogueStealthBridge.IsStrikeReady(player);
-
                 return;
             }
 
@@ -304,8 +308,8 @@ namespace CLVCompat.Systems
                 return;
 
             var held = player.HeldItem;
-            bool forceByWhitelist = held != null
-                && ProblemWeaponRegistry.IsProblemAnyItem(held)
+            bool forceByWhitelist = (ProblemWeaponRegistry.IsProblemProjectile(projectile)
+                    || (held != null && ProblemWeaponRegistry.IsProblemAnyItem(held)))
                 && LV_RogueRuntime.IsSwapActiveOrRogue(held, player);
 
             if (!(IsRogueShot || forceByWhitelist))
@@ -331,8 +335,8 @@ namespace CLVCompat.Systems
                 return;
 
             var held = player.HeldItem;
-            bool forceByWhitelist = held != null
-                && ProblemWeaponRegistry.IsProblemAnyItem(held)
+            bool forceByWhitelist = (ProblemWeaponRegistry.IsProblemProjectile(projectile)
+                    || (held != null && ProblemWeaponRegistry.IsProblemAnyItem(held)))
                 && LV_RogueRuntime.IsSwapActiveOrRogue(held, player);
 
             if (!(IsRogueShot || forceByWhitelist))

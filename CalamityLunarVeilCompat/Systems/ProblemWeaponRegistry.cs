@@ -9,7 +9,7 @@ namespace CLVCompat.Systems
 {
     internal static class ProblemWeaponRegistry
     {
-        private static readonly string[] DisplayNamesThrow = new[]
+        private static readonly string[] DisplayNames_Throw = new[]
         {
             "Scatterbombs",
             "Zenovias Pikpik Jar",
@@ -26,7 +26,7 @@ namespace CLVCompat.Systems
             "Orion",
         };
 
-        private static readonly string[] DisplayNamesSwapped = new[]
+        private static readonly string[] DisplayNames_Swapped = new[]
         {
             "Starring Balls",
             "Hookarama",
@@ -62,8 +62,8 @@ namespace CLVCompat.Systems
             if (initialized)
                 return;
 
-            TryResolveByDisplayNames(DisplayNamesThrow, ThrowItemTypeIds);
-            TryResolveByDisplayNames(DisplayNamesSwapped, SwappedItemTypeIds);
+            TryResolveByDisplayNames(DisplayNames_Throw, ThrowItemTypeIds);
+            TryResolveByDisplayNames(DisplayNames_Swapped, SwappedItemTypeIds);
             initialized = true;
         }
 
@@ -157,10 +157,10 @@ namespace CLVCompat.Systems
         }
 
         internal static bool IsProblemThrowItem(Item item)
-            => item != null && (ThrowItemTypeIds.Contains(item.type) || MatchesDisplayNameRuntime(item, DisplayNamesThrow, ThrowItemTypeIds));
+            => item != null && (ThrowItemTypeIds.Contains(item.type) || MatchesDisplayNameRuntime(item, DisplayNames_Throw, ThrowItemTypeIds));
 
         internal static bool IsProblemSwappedItem(Item item)
-            => item != null && (SwappedItemTypeIds.Contains(item.type) || MatchesDisplayNameRuntime(item, DisplayNamesSwapped, SwappedItemTypeIds));
+            => item != null && (SwappedItemTypeIds.Contains(item.type) || MatchesDisplayNameRuntime(item, DisplayNames_Swapped, SwappedItemTypeIds));
 
         internal static bool IsProblemAnyItem(Item item)
             => IsProblemThrowItem(item) || IsProblemSwappedItem(item);
@@ -187,21 +187,26 @@ namespace CLVCompat.Systems
             return false;
         }
 
+        internal static void AddProjectileTypeRuntime(int projType)
+        {
+            if (projType <= ProjectileID.None || projType >= ProjectileLoader.ProjectileCount)
+                return;
+
+            if (ProjectileTypeIds.Add(projType))
+            {
+                var sample = ContentSamples.ProjectilesByType[projType];
+                var modProj = sample.ModProjectile;
+                if (modProj?.Mod != null)
+                    ProjectileFullNames.Add($"{modProj.Mod.Name}/{modProj.Name}");
+            }
+        }
+
         private static void RegisterResolvedItem(Item item)
         {
             if (item == null)
                 return;
 
-            if (item.shoot > ProjectileID.None && item.shoot < ProjectileLoader.ProjectileCount)
-            {
-                ProjectileTypeIds.Add(item.shoot);
-                var sample = ContentSamples.ProjectilesByType[item.shoot];
-                var modProj = sample.ModProjectile;
-                if (modProj?.Mod != null)
-                {
-                    ProjectileFullNames.Add($"{modProj.Mod.Name}/{modProj.Name}");
-                }
-            }
+            AddProjectileTypeRuntime(item.shoot);
         }
 
         private static void RegisterResolvedProjectile(Projectile projectile)
@@ -209,11 +214,7 @@ namespace CLVCompat.Systems
             if (projectile == null)
                 return;
 
-            ProjectileTypeIds.Add(projectile.type);
-
-            var modProj = projectile.ModProjectile;
-            if (modProj?.Mod != null)
-                ProjectileFullNames.Add($"{modProj.Mod.Name}/{modProj.Name}");
+            AddProjectileTypeRuntime(projectile.type);
         }
     }
 }

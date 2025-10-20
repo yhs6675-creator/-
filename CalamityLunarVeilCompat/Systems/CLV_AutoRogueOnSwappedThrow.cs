@@ -36,7 +36,10 @@ namespace CLVCompat.Systems
             if (LVRogueRegistry.IsRegistered(item.type))
                 return;
 
-            bool shouldForce = ProblemWeaponRegistry.IsProblemAnyItem(item) || ShouldForceRogue(item);
+            bool isThrow = false;
+            RogueGuards.TryGetCurrentThrowState(item, out isThrow);
+
+            bool shouldForce = ShouldForceRogue(item) || (ProblemWeaponRegistry.IsProblemAnyItem(item) && isThrow);
 
             if (shouldForce)
             {
