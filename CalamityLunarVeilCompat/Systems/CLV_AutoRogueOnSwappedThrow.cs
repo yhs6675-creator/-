@@ -36,7 +36,7 @@ namespace CLVCompat.Systems
             if (LVRogueRegistry.IsRegistered(item.type))
                 return;
 
-            bool shouldForce = ShouldForceRogue(item);
+            bool shouldForce = ProblemWeaponRegistry.IsProblemAnyItem(item) || ShouldForceRogue(item);
 
             if (shouldForce)
             {

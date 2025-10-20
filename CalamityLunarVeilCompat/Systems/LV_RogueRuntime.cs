@@ -57,7 +57,7 @@ namespace CLVCompat.Systems
 
         public override void ModifyWeaponDamage(Item item, Player player, ref StatModifier damage)
         {
-            if (!ShouldProcess(item, player))
+            if (!ShouldHandleItem(item, player, out _))
                 return;
 
             if (TryGetStealthMultiplier(player, out var multiplier))
@@ -69,7 +69,7 @@ namespace CLVCompat.Systems
 
         public override void ModifyHitNPC(Item item, Player player, NPC target, ref NPC.HitModifiers modifiers)
         {
-            if (!ShouldProcess(item, player))
+            if (!ShouldHandleItem(item, player, out _))
                 return;
 
             if (baseDamageScaled)
@@ -81,7 +81,7 @@ namespace CLVCompat.Systems
 
         public override void OnHitNPC(Item item, Player player, NPC target, NPC.HitInfo hit, int damageDone)
         {
-            if (!ShouldProcess(item, player))
+            if (!ShouldHandleItem(item, player, out _))
                 return;
 
             var strike = RogueStealthBridge.IsStrikeReady(player);
@@ -111,7 +111,7 @@ namespace CLVCompat.Systems
 
         private void TryConsumeStealth(Item item, Player player)
         {
-            if (!ShouldProcess(item, player))
+            if (!ShouldHandleItem(item, player, out _))
                 return;
 
             if (lastConsumePlayer == player.whoAmI)
@@ -157,6 +157,19 @@ namespace CLVCompat.Systems
             return item.DamageType == rogue;
         }
 
+        internal static bool ShouldHandleItem(Item item, Player player, out bool isProblemItem)
+        {
+            isProblemItem = ProblemWeaponRegistry.IsProblemAnyItem(item);
+            if (isProblemItem)
+                return true;
+
+            if (!ShouldProcess(item, player))
+                return false;
+
+            var modName = item.ModItem?.Mod?.Name;
+            return !string.Equals(modName, "CalamityMod", StringComparison.OrdinalIgnoreCase);
+        }
+
         internal bool HasBaseDamageBeenScaled => baseDamageScaled;
 
         internal static bool TryGetStealthMultiplier(Player player, out float multiplier)
@@ -188,19 +201,22 @@ namespace CLVCompat.Systems
             WasStrikeReadyAtFire = false;
             BaseDamageScaledAtFire = false;
 
-            if (!TryResolveSource(source, out var player, out var item))
+            Player player = null;
+            Item item = null;
+
+            if (!TryResolveSource(source, out player, out item))
             {
-                if (projectile.owner < 0 || projectile.owner >= Main.maxPlayers)
-                    return;
-
-                player = Main.player[projectile.owner];
-                item = player?.HeldItem;
-
-                if (player == null || item == null)
-                    return;
+                if (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
+                {
+                    player = Main.player[projectile.owner];
+                    item = player?.HeldItem;
+                }
             }
 
-            if (!LV_RogueRuntime.ShouldProcess(item, player))
+            if (player == null || item == null)
+                return;
+
+            if (!LV_RogueRuntime.ShouldHandleItem(item, player, out _))
                 return;
 
             IsRogueShot = true;
