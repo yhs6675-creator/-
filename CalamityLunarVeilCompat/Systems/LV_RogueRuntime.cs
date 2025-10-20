@@ -125,24 +125,10 @@ namespace CLVCompat.Systems
             if (item == null || player == null)
                 return false;
 
-            if (!RogueGuards.IsFromLunarVeil(item))
-                return false;
-
             if (!RogueGuards.TryGetCalamityRogue(out var rogue))
                 return false;
 
-            if (item.DamageType != rogue)
-                return false;
-
-            if (RogueGuards.TryGetCurrentThrowState(item, out var isThrow))
-                return isThrow;
-
-            if (LVRogueRegistry.IsRegistered(item.type))
-                return true;
-
-            // 확정 신호가 없어도 이미 RogueDamageClass로 강제 전환된 루나베일 무기라면
-            // 스텔스 소비/보정이 빠지지 않도록 기본적으로 처리한다.
-            return true;
+            return item.DamageType == rogue;
         }
     }
 

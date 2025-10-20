@@ -40,7 +40,7 @@ namespace CLVCompat.Systems
         public override void PostSetupContent()
         {
             // 칼라미티 Rogue가 없으면 아무것도 안 함
-            if (!ModContent.TryFind<DamageClass>("CalamityMod/RogueDamageClass", out _))
+            if (!RogueGuards.TryGetCalamityRogue(out _))
                 return;
 
             // 루나베일이 하나도 로드되지 않았다면 조용히 스킵

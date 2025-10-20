@@ -51,6 +51,42 @@ namespace CLVCompat.Systems
             return ModContent.TryFind("CalamityMod/RogueDamageClass", out rogue);
         }
 
+        internal static bool TryForceRogueDamageClass(Item item)
+        {
+            if (item == null)
+                return false;
+
+            if (!TryGetCalamityRogue(out var rogue))
+                return false;
+
+            var state = item.GetGlobalItem<RogueDamageState>();
+
+            if (!state.ForcedByCompat)
+                state.CaptureOriginal(item.DamageType);
+
+            state.ForcedByCompat = true;
+
+            if (item.DamageType != rogue)
+                item.DamageType = rogue;
+
+            return true;
+        }
+
+        internal static void RestoreOriginalDamageClass(Item item)
+        {
+            if (item == null)
+                return;
+
+            var state = item.GetGlobalItem<RogueDamageState>();
+            if (!state.ForcedByCompat)
+                return;
+
+            if (state.HasOriginal && state.OriginalDamageClass != null)
+                item.DamageType = state.OriginalDamageClass;
+
+            state.Reset();
+        }
+
         internal static bool TryGetLVThrowDamageClass(out DamageClass lvThrow)
         {
             foreach (var id in LunarVeilModIds)
@@ -132,6 +168,31 @@ namespace CLVCompat.Systems
             }
 
             return false;
+        }
+
+        private sealed class RogueDamageState : GlobalItem
+        {
+            public override bool InstancePerEntity => true;
+
+            public DamageClass OriginalDamageClass { get; private set; }
+            public bool HasOriginal { get; private set; }
+            public bool ForcedByCompat { get; set; }
+
+            public void CaptureOriginal(DamageClass damageClass)
+            {
+                if (HasOriginal)
+                    return;
+
+                OriginalDamageClass = damageClass;
+                HasOriginal = true;
+            }
+
+            public void Reset()
+            {
+                ForcedByCompat = false;
+                HasOriginal = false;
+                OriginalDamageClass = null;
+            }
         }
     }
 }
