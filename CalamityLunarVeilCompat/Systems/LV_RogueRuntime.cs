@@ -79,6 +79,18 @@ namespace CLVCompat.Systems
                 modifiers.FinalDamage *= multiplier;
         }
 
+        public override void OnHitNPC(Item item, Player player, NPC target, NPC.HitInfo hit, int damageDone)
+        {
+            if (!ShouldProcess(item, player))
+                return;
+
+            var strike = RogueStealthBridge.IsStrikeReady(player);
+            RogueStealthBridge.ConsumeForAttack(player, strike);
+
+            if (strike)
+                RogueStealthBridge.NotifyStealthStrikeFired(player, null);
+        }
+
         internal bool TryGetStrikeStateForProjectile(Player player, out bool strike)
         {
             if (player == null || lastConsumePlayer != player.whoAmI)
@@ -164,30 +176,53 @@ namespace CLVCompat.Systems
     {
         public override bool InstancePerEntity => true;
 
-        public bool StealthStrike { get; private set; }
-        private bool consumedStealthOnHit;
+        public bool IsRogueShot { get; private set; }
+        public bool WasStrikeReadyAtFire { get; private set; }
+        public bool ConsumedOnce { get; private set; }
+        public bool BaseDamageScaledAtFire { get; private set; }
 
         public override void OnSpawn(Projectile projectile, IEntitySource source)
         {
-            consumedStealthOnHit = false;
+            ConsumedOnce = false;
+            IsRogueShot = false;
+            WasStrikeReadyAtFire = false;
+            BaseDamageScaledAtFire = false;
 
             if (!TryResolveSource(source, out var player, out var item))
+            {
+                if (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
+                {
+                    player = Main.player[projectile.owner];
+                    item = player?.HeldItem;
+                }
+
+                if (player == null || item == null)
+                    return;
+            }
+
+            if (!LV_RogueRuntime.ShouldProcess(item, player))
                 return;
+
+            IsRogueShot = true;
 
             var global = item.GetGlobalItem<LV_RogueRuntime>();
-            if (global == null)
-                return;
+            if (global != null)
+            {
+                BaseDamageScaledAtFire = global.HasBaseDamageBeenScaled;
 
-            if (!global.TryGetStrikeStateForProjectile(player, out var strike))
-                return;
+                if (global.TryGetStrikeStateForProjectile(player, out var strikeFromUse))
+                    WasStrikeReadyAtFire = strikeFromUse;
+            }
 
-            StealthStrike = strike;
-            if (strike)
-                RogueStealthBridge.NotifyStealthStrikeFired(player, projectile);
+            if (!WasStrikeReadyAtFire)
+                WasStrikeReadyAtFire = RogueStealthBridge.IsStrikeReady(player);
         }
 
         public override void ModifyHitNPC(Projectile projectile, NPC target, ref NPC.HitModifiers modifiers)
         {
+            if (!IsRogueShot)
+                return;
+
             if (projectile.owner < 0 || projectile.owner >= Main.maxPlayers)
                 return;
 
@@ -195,12 +230,7 @@ namespace CLVCompat.Systems
             if (player == null)
                 return;
 
-            var item = player.HeldItem;
-            if (!LV_RogueRuntime.ShouldProcess(item, player))
-                return;
-
-            var global = item.GetGlobalItem<LV_RogueRuntime>();
-            if (global == null || global.HasBaseDamageBeenScaled)
+            if (BaseDamageScaledAtFire)
                 return;
 
             if (LV_RogueRuntime.TryGetStealthMultiplier(player, out var multiplier))
@@ -209,7 +239,7 @@ namespace CLVCompat.Systems
 
         public override void OnHitNPC(Projectile projectile, NPC target, NPC.HitInfo hit, int damageDone)
         {
-            if (consumedStealthOnHit)
+            if (!IsRogueShot || ConsumedOnce)
                 return;
 
             if (projectile.owner < 0 || projectile.owner >= Main.maxPlayers)
@@ -219,18 +249,13 @@ namespace CLVCompat.Systems
             if (player == null)
                 return;
 
-            var item = player.HeldItem;
-            if (!LV_RogueRuntime.ShouldProcess(item, player))
-                return;
-
-            var strike = StealthStrike || RogueStealthBridge.IsStrikeReady(player);
+            var strike = WasStrikeReadyAtFire || RogueStealthBridge.IsStrikeReady(player);
             RogueStealthBridge.ConsumeForAttack(player, strike);
 
-            if (strike && !StealthStrike)
+            if (strike)
                 RogueStealthBridge.NotifyStealthStrikeFired(player, projectile);
 
-            StealthStrike |= strike;
-            consumedStealthOnHit = true;
+            ConsumedOnce = true;
         }
 
         private static bool TryResolveSource(IEntitySource source, out Player player, out Item item)
@@ -239,11 +264,19 @@ namespace CLVCompat.Systems
             {
                 case EntitySource_ItemUse_WithAmmo withAmmo:
                     player = withAmmo.Entity as Player;
-                    item = withAmmo.Item;
+                    item = withAmmo.Item ?? withAmmo.AmmoItem;
                     return player != null && item != null;
                 case EntitySource_ItemUse itemUse:
                     player = itemUse.Entity as Player;
                     item = itemUse.Item;
+                    return player != null && item != null;
+                case EntitySource_Parent parent:
+                    player = parent.Entity as Player;
+                    item = player?.HeldItem;
+                    return player != null && item != null;
+                case EntitySource_Misc misc:
+                    player = misc.Entity as Player;
+                    item = player?.HeldItem;
                     return player != null && item != null;
                 default:
                     player = null;
