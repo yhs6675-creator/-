@@ -190,11 +190,11 @@ namespace CLVCompat.Systems
 
             if (!TryResolveSource(source, out var player, out var item))
             {
-                if (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
-                {
-                    player = Main.player[projectile.owner];
-                    item = player?.HeldItem;
-                }
+                if (projectile.owner < 0 || projectile.owner >= Main.maxPlayers)
+                    return;
+
+                player = Main.player[projectile.owner];
+                item = player?.HeldItem;
 
                 if (player == null || item == null)
                     return;
@@ -272,10 +272,6 @@ namespace CLVCompat.Systems
                     return player != null && item != null;
                 case EntitySource_Parent parent:
                     player = parent.Entity as Player;
-                    item = player?.HeldItem;
-                    return player != null && item != null;
-                case EntitySource_Misc misc:
-                    player = misc.Entity as Player;
                     item = player?.HeldItem;
                     return player != null && item != null;
                 default:
