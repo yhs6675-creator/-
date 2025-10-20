@@ -264,7 +264,7 @@ namespace CLVCompat.Systems
             {
                 case EntitySource_ItemUse_WithAmmo withAmmo:
                     player = withAmmo.Entity as Player;
-                    item = withAmmo.Item ?? withAmmo.AmmoItem;
+                    item = withAmmo.Item;
                     return player != null && item != null;
                 case EntitySource_ItemUse itemUse:
                     player = itemUse.Entity as Player;
