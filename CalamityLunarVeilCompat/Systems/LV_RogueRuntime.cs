@@ -216,7 +216,7 @@ namespace CLVCompat.Systems
             if (player == null || item == null)
                 return;
 
-            if (!LV_RogueRuntime.ShouldHandleItem(item, player, out _))
+            if (!LV_RogueRuntime.ShouldHandleItem(item, player, out var isProblemItem))
                 return;
 
             IsRogueShot = true;
@@ -230,19 +230,22 @@ namespace CLVCompat.Systems
                     WasStrikeReadyAtFire = strikeFromUse;
             }
 
-            if (!WasStrikeReadyAtFire)
+            if (!WasStrikeReadyAtFire || isProblemItem)
                 WasStrikeReadyAtFire = RogueStealthBridge.IsStrikeReady(player);
         }
 
         public override void ModifyHitNPC(Projectile projectile, NPC target, ref NPC.HitModifiers modifiers)
         {
-            if (!IsRogueShot)
+            Player player = null;
+
+            if (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
+                player = Main.player[projectile.owner];
+
+            bool forceByWhitelist = player?.HeldItem != null && ProblemWeaponRegistry.IsProblemAnyItem(player.HeldItem);
+
+            if (!(IsRogueShot || forceByWhitelist))
                 return;
 
-            if (projectile.owner < 0 || projectile.owner >= Main.maxPlayers)
-                return;
-
-            var player = Main.player[projectile.owner];
             if (player == null)
                 return;
 
@@ -255,13 +258,19 @@ namespace CLVCompat.Systems
 
         public override void OnHitNPC(Projectile projectile, NPC target, NPC.HitInfo hit, int damageDone)
         {
-            if (!IsRogueShot || ConsumedOnce)
+            if (ConsumedOnce)
                 return;
 
-            if (projectile.owner < 0 || projectile.owner >= Main.maxPlayers)
+            Player player = null;
+
+            if (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
+                player = Main.player[projectile.owner];
+
+            bool forceByWhitelist = player?.HeldItem != null && ProblemWeaponRegistry.IsProblemAnyItem(player.HeldItem);
+
+            if (!(IsRogueShot || forceByWhitelist))
                 return;
 
-            var player = Main.player[projectile.owner];
             if (player == null)
                 return;
 

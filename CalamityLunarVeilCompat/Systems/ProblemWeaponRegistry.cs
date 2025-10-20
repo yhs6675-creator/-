@@ -89,6 +89,9 @@ namespace CLVCompat.Systems
 
         private static string Normalize(string value)
         {
+            if (string.IsNullOrWhiteSpace(value))
+                return string.Empty;
+
             return value
                 .Trim()
                 .Replace("’", "'")
@@ -99,11 +102,47 @@ namespace CLVCompat.Systems
                 .ToLowerInvariant();
         }
 
+        private static bool MatchesDisplayNameRuntime(Item item, IEnumerable<string> names)
+        {
+            if (item == null)
+                return false;
+
+            var display = item.ModItem?.DisplayName?.Value ?? item.Name ?? string.Empty;
+            var normalizedDisplay = Normalize(display);
+
+            if (string.IsNullOrEmpty(normalizedDisplay))
+                return false;
+
+            foreach (var raw in names)
+            {
+                if (string.IsNullOrWhiteSpace(raw))
+                    continue;
+
+                var normalizedTarget = Normalize(raw);
+
+                if (string.IsNullOrEmpty(normalizedTarget))
+                    continue;
+
+                if (normalizedDisplay.Contains(normalizedTarget) || normalizedTarget.Contains(normalizedDisplay))
+                    return true;
+
+                var corrected = normalizedTarget
+                    .Replace("lgniter", "igniter")
+                    .Replace("larve", "larva")
+                    .Replace("starring", "star");
+
+                if (normalizedDisplay.Contains(corrected))
+                    return true;
+            }
+
+            return false;
+        }
+
         internal static bool IsProblemThrowItem(Item item)
-            => item != null && ThrowItemTypeIds.Contains(item.type);
+            => item != null && (ThrowItemTypeIds.Contains(item.type) || MatchesDisplayNameRuntime(item, DisplayNamesThrow));
 
         internal static bool IsProblemSwappedItem(Item item)
-            => item != null && SwappedItemTypeIds.Contains(item.type);
+            => item != null && (SwappedItemTypeIds.Contains(item.type) || MatchesDisplayNameRuntime(item, DisplayNamesSwapped));
 
         internal static bool IsProblemAnyItem(Item item)
             => IsProblemThrowItem(item) || IsProblemSwappedItem(item);
