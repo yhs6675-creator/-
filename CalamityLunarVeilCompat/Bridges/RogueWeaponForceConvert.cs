@@ -17,48 +17,47 @@ namespace CalamityLunarVeilCompat.Bridges
 
         public override bool InstancePerEntity => false;
 
-        public override void SetDefaults(Item item)
+        public override void HoldItem(Item item, Player player) => Process(item);
+
+        public override void UpdateInventory(Item item, Player player) => Process(item);
+
+        public override void SetDefaults(Item item) => Process(item);
+
+        private static void Process(Item item)
         {
+            if (item == null)
+                return;
+
             if (!RogueGuards.IsFromLunarVeil(item))
-                return;
-
-            var mi = item.ModItem;
-            if (mi is null) return;
-
-            // 무기만 대상(소모품 표창 등은 isWeapon 판단이 애매할 수 있으니, shoot/UseStyle도 추가 확인)
-            if (!item.CountsAsClass(DamageClass.Melee) &&
-                !item.CountsAsClass(DamageClass.Ranged) &&
-                !item.CountsAsClass(DamageClass.Magic) &&
-                !item.CountsAsClass(DamageClass.Summon) &&
-                !item.CountsAsClass(DamageClass.Throwing) && // 일부 모드가 정의했을 수 있음
-                item.damage <= 0)
-                return;
-
-            // 이미 Rogue라면 스킵
-            if (ModContent.TryFind<DamageClass>("CalamityMod", "RogueDamageClass", out var rogueDC))
             {
-                if (item.DamageType == rogueDC) return;
-
-                // 1) 내부명 화이트리스트
-                if (!ShouldConvert(mi, item))
-                    return;
-
-                item.DamageType = rogueDC;
+                RogueGuards.RestoreOriginalDamageClass(item);
+                return;
             }
-        }
 
-        private static bool ShouldConvert(ModItem modItem, Item item)
-        {
+            var modItem = item.ModItem;
             if (modItem == null)
-                return false;
+            {
+                RogueGuards.RestoreOriginalDamageClass(item);
+                return;
+            }
 
-            if (ExplicitThrowWeapons.Contains(modItem.Name))
-                return true;
+            bool shouldConvert = ExplicitThrowWeapons.Contains(modItem.Name);
 
-            if (RogueGuards.TryGetCurrentThrowState(item, out var isThrow))
-                return isThrow;
+            if (!shouldConvert && RogueGuards.TryGetCurrentThrowState(item, out var isThrow))
+                shouldConvert = isThrow;
 
-            return false;
+            if (!shouldConvert && RogueGuards.TryGetLVThrowDamageClass(out var lvThrow) && item.CountsAsClass(lvThrow))
+                shouldConvert = true;
+
+            if (shouldConvert)
+            {
+                if (!RogueGuards.TryForceRogueDamageClass(item))
+                    RogueGuards.RestoreOriginalDamageClass(item);
+            }
+            else
+            {
+                RogueGuards.RestoreOriginalDamageClass(item);
+            }
         }
     }
 }

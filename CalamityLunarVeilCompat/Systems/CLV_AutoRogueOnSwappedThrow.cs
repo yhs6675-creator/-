@@ -2,8 +2,6 @@
 // 목적: "클래스 스와핑" 무기가 '현재' 투척 상태일 때만 RogueDamageClass 적용.
 // 휴리스틱(이름/툴팁 토큰) 제거. 오로지 확정 신호(API or ThrowingDamageClass 카운트)만 사용.
 
-using System;
-using System.Linq;
 using System.Reflection;
 using Terraria;
 using Terraria.ModLoader;
@@ -14,85 +12,51 @@ namespace CLVCompat.Systems
     {
         public override bool InstancePerEntity => false;
 
-        private static readonly string[] LVModNames = { "LunarVeilMod","LunarVeilLegacy","LunarVielmod","LunarViel" };
-
         public override void HoldItem(Item item, Player player) => TryAutoRogue(item);
         public override void UpdateInventory(Item item, Player player) => TryAutoRogue(item);
 
+        public override bool CanUseItem(Item item, Player player)
+        {
+            TryAutoRogue(item);
+            return base.CanUseItem(item, player);
+        }
+
+        public override void UseStyle(Item item, Player player, Microsoft.Xna.Framework.Rectangle heldItemFrame)
+        {
+            TryAutoRogue(item);
+            base.UseStyle(item, player, heldItemFrame);
+        }
+
         private static void TryAutoRogue(Item item)
         {
+            if (item == null)
+                return;
+
             // 등록제로 이미 Rogue 지정된 타입은 무시
             if (LVRogueRegistry.IsRegistered(item.type))
                 return;
 
-            // 루나베일 소속 아이템만 대상
-            var owner = item.ModItem?.Mod?.Name;
-            if (owner == null || !LVModNames.Contains(owner, StringComparer.OrdinalIgnoreCase))
-                return;
+            bool shouldForce = ProblemWeaponRegistry.IsProblemAnyItem(item) || ShouldForceRogue(item);
 
-            // 지금 '투척' 상태인지 확정 신호로만 판정
-            if (!IsCurrentlyThrown_ByDefiniteSignals(item))
-                return;
-
-            if (ModContent.TryFind<DamageClass>("CalamityMod/RogueDamageClass", out var rogue))
+            if (shouldForce)
             {
-                item.DamageType = rogue;
-                ModContent.GetInstance<CalamityLunarVeilCompat>().Logger.Info(
-                    $"[LVCompat] Auto-Rogue (SWAP): {item.ModItem?.GetType().FullName}"
-                );
+                if (!RogueGuards.TryForceRogueDamageClass(item))
+                    RogueGuards.RestoreOriginalDamageClass(item);
+            }
+            else
+            {
+                RogueGuards.RestoreOriginalDamageClass(item);
             }
         }
 
-        private static bool IsCurrentlyThrown_ByDefiniteSignals(Item item)
+        private static bool ShouldForceRogue(Item item)
         {
-            // 1) 루나베일이 API를 제공하는 경우(최우선)
-            if (TryAskLunarVeilByCall(item, out bool isThrow))
+            if (RogueGuards.TryGetCurrentThrowState(item, out bool isThrow))
                 return isThrow;
 
-            // 2) 루나베일 고유 ThrowingDamageClass를 실제로 '카운트'하는지 확인
-            if (TryCountsAsLunarVeilThrow(item))
-                return true;
-
-            // 3) (선택적) 내부 표식/프로퍼티가 명확히 제공되는 경우만 true
-            if (TryReflectExplicitFlag(item, out bool flag)) // 예: bool IsClassSwappedToThrow
+            if (TryReflectExplicitFlag(item, out bool flag))
                 return flag;
 
-            return false;
-        }
-
-        private static bool TryAskLunarVeilByCall(Item item, out bool isThrow)
-        {
-            isThrow = false;
-            foreach (var name in LVModNames)
-            {
-                var lv = ModLoader.GetMod(name);
-                if (lv == null) continue;
-
-                object ret = null;
-
-                // 선호 시그니처 1: (itemType)
-                try { ret = lv.Call("IsClassSwappedToThrow", item.type); } catch { }
-                if (ret is bool b1) { isThrow = b1; return true; }
-
-                // 선호 시그니처 2: (item)
-                try { ret = lv.Call("IsClassSwappedToThrow", item); } catch { }
-                if (ret is bool b2) { isThrow = b2; return true; }
-            }
-            return false;
-        }
-
-        private static bool TryCountsAsLunarVeilThrow(Item item)
-        {
-            // 루나베일이 자체 ThrowingDamageClass를 노출한다면 그것만 신뢰
-            // 후보 경로를 시도: "<Mod>/ThrowingDamageClass", "<Mod>/LVThrowingDamageClass" 등
-            foreach (var name in LVModNames)
-            {
-                if (ModContent.TryFind<DamageClass>($"{name}/ThrowingDamageClass", out var lvThrow))
-                    if (item.CountsAsClass(lvThrow)) return true;
-
-                if (ModContent.TryFind<DamageClass>($"{name}/LVThrowingDamageClass", out var lvThrow2))
-                    if (item.CountsAsClass(lvThrow2)) return true;
-            }
             return false;
         }
 

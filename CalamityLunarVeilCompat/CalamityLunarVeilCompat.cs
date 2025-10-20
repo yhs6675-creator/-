@@ -15,6 +15,8 @@ namespace CLVCompat
     {
         public override void Load()
         {
+            ProblemWeaponRegistry.Initialize();
+
             // ── 유황바다 방향 고정 (오른쪽) ──
             LVOceanSys.OverrideSulphurSide(+1);
 
