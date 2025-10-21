@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using CLVCompat.Utils;
+using Terraria;
 using Terraria.Localization;
 using Terraria.ModLoader;
 
