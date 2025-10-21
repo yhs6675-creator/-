@@ -14,6 +14,10 @@ namespace CLVCompat.Systems
         public override void OnSpawn(Projectile projectile, IEntitySource source)
         {
             FromRogueSwap = ProjectileSnapshot.TryConsumeMark(source);
+            if (!FromRogueSwap && source is EntitySource_Parent parent && parent.Entity is Projectile parentProj)
+            {
+                FromRogueSwap = parentProj.GetGlobalProjectile<RogueProjGlobal>()?.FromRogueSwap == true;
+            }
             CompatDebug.LogSnapshot(projectile, FromRogueSwap);
         }
 

@@ -84,7 +84,7 @@ namespace CLVCompat.Systems
                 return false;
 
             whitelisted = WhitelistIndex.WhitelistTypes.Contains(item.type);
-            bool swap = player.GetModPlayer<RogueContext>().RogueSwapActive;
+            bool swap = player.GetModPlayer<RogueContext>().EvaluateSwapState(item);
             bool throwState = RogueGuards.TryGetCurrentThrowState(item, out var throwing) && throwing;
             bool problem = ProblemWeaponRegistry.IsProblemAnyItem(item);
 

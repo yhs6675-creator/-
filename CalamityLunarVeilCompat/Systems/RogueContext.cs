@@ -14,20 +14,32 @@ namespace CLVCompat.Systems
         private int lastConsumeAnimation = -1;
         private int lastConsumeItemTime = -1;
         private uint pendingMarkFrame = uint.MaxValue;
+        private int pendingMarkItemType = -1;
+        private bool pendingMarkConsumed;
 
         public override void ResetEffects()
         {
             RogueSwapActive = false;
-            if (Main.GameUpdateCount - pendingMarkFrame > 1u)
+            if (pendingMarkConsumed && Main.GameUpdateCount != pendingMarkFrame)
             {
-                PendingProjectileMark = false;
-                pendingMarkFrame = uint.MaxValue;
+                ClearPendingMark();
+            }
+            else if (PendingProjectileMark && Main.GameUpdateCount - pendingMarkFrame > 1u)
+            {
+                ClearPendingMark();
             }
         }
 
         public override void PostUpdate()
         {
             RogueSwapActive = DetermineSwapState(Player.HeldItem);
+        }
+
+        internal bool EvaluateSwapState(Item item)
+        {
+            bool swap = DetermineSwapState(item ?? Player.HeldItem);
+            RogueSwapActive = swap;
+            return swap;
         }
 
         private static bool DetermineSwapState(Item item)
@@ -59,6 +71,8 @@ namespace CLVCompat.Systems
         {
             PendingProjectileMark = true;
             pendingMarkFrame = Main.GameUpdateCount;
+            pendingMarkItemType = Player.HeldItem?.type ?? 0;
+            pendingMarkConsumed = false;
         }
 
         internal bool TryConsumeMark(IEntitySource source)
@@ -68,46 +82,84 @@ namespace CLVCompat.Systems
 
             if (pendingMarkFrame == uint.MaxValue)
             {
-                PendingProjectileMark = false;
+                ClearPendingMark();
                 return false;
             }
 
             uint diff = Main.GameUpdateCount - pendingMarkFrame;
             if (diff > 1u)
             {
-                PendingProjectileMark = false;
-                pendingMarkFrame = uint.MaxValue;
+                ClearPendingMark();
                 return false;
             }
 
             if (source is EntitySource_ItemUse use && use.Entity == Player)
             {
-                PendingProjectileMark = false;
-                pendingMarkFrame = uint.MaxValue;
-                return true;
+                if (!MatchesPendingItem(use.Item))
+                    return false;
+                return CompleteConsume(diff);
             }
 
             if (source is EntitySource_ItemUse_WithAmmo withAmmo && withAmmo.Entity == Player)
             {
-                PendingProjectileMark = false;
-                pendingMarkFrame = uint.MaxValue;
-                return true;
+                if (!MatchesPendingItem(withAmmo.Item))
+                    return false;
+                return CompleteConsume(diff);
             }
 
-            if (source is EntitySource_Parent parent && parent.Entity == Player)
+            if (source is EntitySource_Parent parent)
             {
-                PendingProjectileMark = false;
-                pendingMarkFrame = uint.MaxValue;
-                return true;
+                if (parent.Entity == Player)
+                    return CompleteConsume(diff);
+
+                if (parent.Entity is Projectile proj && proj.owner == Player.whoAmI)
+                {
+                    var global = proj.GetGlobalProjectile<RogueProjGlobal>();
+                    if (global != null && global.FromRogueSwap)
+                        return CompleteConsume(diff);
+                }
+
+                return false;
             }
 
             if (diff > 0u)
             {
-                PendingProjectileMark = false;
-                pendingMarkFrame = uint.MaxValue;
+                ClearPendingMark();
             }
 
             return false;
+        }
+
+        private bool CompleteConsume(uint age)
+        {
+            pendingMarkConsumed = true;
+
+            if (age >= 1u)
+            {
+                ClearPendingMark();
+            }
+
+            return true;
+        }
+
+        private bool MatchesPendingItem(Item sourceItem)
+        {
+            if (pendingMarkItemType <= 0)
+                return true;
+
+            int type = sourceItem?.type ?? 0;
+            if (type == 0)
+                return true;
+
+            return type == pendingMarkItemType;
+        }
+
+        private void ClearPendingMark()
+        {
+            PendingProjectileMark = false;
+            pendingMarkFrame = uint.MaxValue;
+            pendingMarkItemType = -1;
+            pendingMarkConsumed = false;
         }
     }
 }
