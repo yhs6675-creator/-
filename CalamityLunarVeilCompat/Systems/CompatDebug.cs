@@ -9,7 +9,7 @@ namespace CLVCompat.Systems
         public static bool LogWhitelist { get; set; }
         public static bool LogSwap { get; set; }
         public static bool LogRogue { get; set; }
-        public static bool LogStealth { get; set; }
+        public static bool LogStealthEvents { get; set; }
         public static bool LogSnapshot { get; set; }
 
         private static CalamityLunarVeilCompat ModInstance => ModContent.GetInstance<CalamityLunarVeilCompat>();
@@ -44,7 +44,7 @@ namespace CLVCompat.Systems
 
         public static void LogStealth(bool fired, float consumed, float stealthNow)
         {
-            if (!LogStealth)
+            if (!LogStealthEvents)
                 return;
 
             ModInstance.Logger.Info($"[Stealth] fired={fired}, consumed={consumed:0.###}, stealthNow={stealthNow:0.###}");
