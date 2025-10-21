@@ -10,7 +10,7 @@ namespace CLVCompat.Systems
         public static bool LogSwap { get; set; }
         public static bool LogRogue { get; set; }
         public static bool LogStealthEvents { get; set; }
-        public static bool LogSnapshot { get; set; }
+        public static bool LogSnapshotEvents { get; set; }
 
         private static CalamityLunarVeilCompat ModInstance => ModContent.GetInstance<CalamityLunarVeilCompat>();
 
@@ -52,7 +52,7 @@ namespace CLVCompat.Systems
 
         public static void LogSnapshot(Projectile projectile, bool fromRogueSwap)
         {
-            if (!LogSnapshot)
+            if (!LogSnapshotEvents)
                 return;
 
             int type = projectile != null ? projectile.type : -1;
