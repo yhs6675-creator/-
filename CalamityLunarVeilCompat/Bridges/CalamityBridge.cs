@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Terraria;
+using Terraria.ModLoader;
 using CLVCompat.Systems;
 
 namespace CalamityLunarVeilCompat.Bridges
