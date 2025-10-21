@@ -239,53 +239,21 @@ namespace CLVCompat.Systems
 
             item ??= player?.HeldItem;
 
-            bool isThrow = false;
-            if (item != null && RogueGuards.TryGetCurrentThrowState(item, out isThrow) && isThrow)
+            DamageClass rogueDc = null;
+            if (RogueGuards.TryGetCalamityRogue(out var rogueClass))
+                rogueDc = rogueClass;
+
+            DamageClass lvThrowDc = null;
+            if (RogueGuards.TryGetLVThrowDamageClass(out var lvThrowClass))
+                lvThrowDc = lvThrowClass;
+
+            void TagFrom(Item captureItem, bool registerProjectile)
             {
                 IsRogueShot = true;
 
-                var globalTagged = item.GetGlobalItem<LV_RogueRuntime>();
-                if (globalTagged != null)
+                if (captureItem != null)
                 {
-                    BaseDamageScaledAtFire = globalTagged.HasBaseDamageBeenScaled;
-
-                    if (globalTagged.TryGetStrikeStateForProjectile(player, out var strikeFromUse))
-                        WasStrikeReadyAtFire = strikeFromUse;
-                }
-
-                if (!WasStrikeReadyAtFire)
-                    WasStrikeReadyAtFire = RogueStealthBridge.IsStrikeReady(player);
-
-                return;
-            }
-
-            if (item != null && ProblemWeaponRegistry.IsProblemAnyItem(item))
-            {
-                IsRogueShot = true;
-
-                var globalTagged = item.GetGlobalItem<LV_RogueRuntime>();
-                if (globalTagged != null)
-                {
-                    BaseDamageScaledAtFire = globalTagged.HasBaseDamageBeenScaled;
-
-                    if (globalTagged.TryGetStrikeStateForProjectile(player, out var strikeFromUse))
-                        WasStrikeReadyAtFire = strikeFromUse;
-                }
-
-                if (!WasStrikeReadyAtFire)
-                    WasStrikeReadyAtFire = RogueStealthBridge.IsStrikeReady(player);
-
-                ProblemWeaponRegistry.AddProjectileTypeRuntime(projectile.type);
-                return;
-            }
-
-            if (ProblemWeaponRegistry.IsProblemProjectile(projectile))
-            {
-                IsRogueShot = true;
-
-                if (item != null)
-                {
-                    var globalTagged = item.GetGlobalItem<LV_RogueRuntime>();
+                    var globalTagged = captureItem.GetGlobalItem<LV_RogueRuntime>();
                     if (globalTagged != null)
                     {
                         BaseDamageScaledAtFire = globalTagged.HasBaseDamageBeenScaled;
@@ -298,7 +266,31 @@ namespace CLVCompat.Systems
                 if (!WasStrikeReadyAtFire)
                     WasStrikeReadyAtFire = RogueStealthBridge.IsStrikeReady(player);
 
-                ProblemWeaponRegistry.AddProjectileTypeRuntime(projectile.type);
+                if (registerProjectile)
+                    ProblemWeaponRegistry.AddProjectileTypeRuntime(projectile.type);
+            }
+
+            if (item != null && RogueGuards.TryGetCurrentThrowState(item, out bool isThrow) && isThrow)
+            {
+                TagFrom(item, true);
+                return;
+            }
+
+            if ((item != null && ProblemWeaponRegistry.IsProblemAnyItem(item)) || ProblemWeaponRegistry.IsProblemProjectile(projectile))
+            {
+                TagFrom(item, true);
+                return;
+            }
+
+            if (item != null && ((rogueDc != null && item.DamageType == rogueDc) || (lvThrowDc != null && item.CountsAsClass(lvThrowDc))))
+            {
+                TagFrom(item, false);
+                return;
+            }
+
+            if ((rogueDc != null && projectile.DamageType == rogueDc) || (lvThrowDc != null && projectile.CountsAsClass(lvThrowDc)))
+            {
+                TagFrom(item, false);
                 return;
             }
 
@@ -308,19 +300,7 @@ namespace CLVCompat.Systems
             if (!LV_RogueRuntime.ShouldHandleItem(item, player, out var isProblemItem))
                 return;
 
-            IsRogueShot = true;
-
-            var global = item.GetGlobalItem<LV_RogueRuntime>();
-            if (global != null)
-            {
-                BaseDamageScaledAtFire = global.HasBaseDamageBeenScaled;
-
-                if (global.TryGetStrikeStateForProjectile(player, out var strikeFromUse))
-                    WasStrikeReadyAtFire = strikeFromUse;
-            }
-
-            if (!WasStrikeReadyAtFire || isProblemItem)
-                WasStrikeReadyAtFire = RogueStealthBridge.IsStrikeReady(player);
+            TagFrom(item, isProblemItem);
         }
 
         public override void ModifyHitNPC(Projectile projectile, NPC target, ref NPC.HitModifiers modifiers)
@@ -332,7 +312,14 @@ namespace CLVCompat.Systems
             if (player == null)
                 return;
 
-            if (!(IsRogueShot || ProblemWeaponRegistry.IsProblemProjectile(projectile)))
+            bool byDamageClass = false;
+
+            if (RogueGuards.TryGetCalamityRogue(out var rogue) && projectile.DamageType == rogue)
+                byDamageClass = true;
+            else if (RogueGuards.TryGetLVThrowDamageClass(out var lvThrow) && projectile.CountsAsClass(lvThrow))
+                byDamageClass = true;
+
+            if (!(IsRogueShot || ProblemWeaponRegistry.IsProblemProjectile(projectile) || byDamageClass))
                 return;
 
             if (BaseDamageScaledAtFire)
@@ -354,7 +341,14 @@ namespace CLVCompat.Systems
             if (player == null)
                 return;
 
-            if (!(IsRogueShot || ProblemWeaponRegistry.IsProblemProjectile(projectile)))
+            bool byDamageClass = false;
+
+            if (RogueGuards.TryGetCalamityRogue(out var rogue) && projectile.DamageType == rogue)
+                byDamageClass = true;
+            else if (RogueGuards.TryGetLVThrowDamageClass(out var lvThrow) && projectile.CountsAsClass(lvThrow))
+                byDamageClass = true;
+
+            if (!(IsRogueShot || ProblemWeaponRegistry.IsProblemProjectile(projectile) || byDamageClass))
                 return;
 
             var strike = WasStrikeReadyAtFire || RogueStealthBridge.IsStrikeReady(player);
