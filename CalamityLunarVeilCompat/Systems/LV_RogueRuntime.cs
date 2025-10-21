@@ -69,6 +69,14 @@ namespace CLVCompat.Systems
 
         public override void ModifyHitNPC(Item item, Player player, NPC target, ref NPC.HitModifiers modifiers)
         {
+            if (ProblemWeaponRegistry.WhitelistHardForce && ProblemWeaponRegistry.IsProblemAnyItem(item))
+            {
+                if (!baseDamageScaled && TryGetStealthMultiplier(player, out var hardForceMultiplier))
+                    modifiers.FinalDamage *= hardForceMultiplier;
+
+                return;
+            }
+
             if (!ShouldHandleItem(item, player, out _))
                 return;
 
@@ -81,6 +89,17 @@ namespace CLVCompat.Systems
 
         public override void OnHitNPC(Item item, Player player, NPC target, NPC.HitInfo hit, int damageDone)
         {
+            if (ProblemWeaponRegistry.WhitelistHardForce && ProblemWeaponRegistry.IsProblemAnyItem(item))
+            {
+                var strikeHardForce = RogueStealthBridge.IsStrikeReady(player);
+                RogueStealthBridge.ConsumeForAttack(player, strikeHardForce);
+
+                if (strikeHardForce)
+                    RogueStealthBridge.NotifyStealthStrikeFired(player, null);
+
+                return;
+            }
+
             if (!ShouldHandleItem(item, player, out _))
                 return;
 
@@ -270,6 +289,15 @@ namespace CLVCompat.Systems
                     ProblemWeaponRegistry.AddProjectileTypeRuntime(projectile.type);
             }
 
+            if (ProblemWeaponRegistry.WhitelistHardForce)
+            {
+                if ((item != null && ProblemWeaponRegistry.IsProblemAnyItem(item)) || ProblemWeaponRegistry.IsProblemProjectile(projectile))
+                {
+                    TagFrom(item, true);
+                    return;
+                }
+            }
+
             if (item != null && RogueGuards.TryGetCurrentThrowState(item, out bool isThrow) && isThrow)
             {
                 TagFrom(item, true);
@@ -324,15 +352,20 @@ namespace CLVCompat.Systems
             if (player == null)
                 return;
 
-            bool byDamageClass = false;
+            bool hardForcedProjectile = ProblemWeaponRegistry.WhitelistHardForce && ProblemWeaponRegistry.IsProblemProjectile(projectile);
 
-            if (RogueGuards.TryGetCalamityRogue(out var rogue) && projectile.DamageType == rogue)
-                byDamageClass = true;
-            else if (RogueGuards.TryGetLVThrowDamageClass(out var lvThrow) && projectile.CountsAsClass(lvThrow))
-                byDamageClass = true;
+            if (!hardForcedProjectile)
+            {
+                bool byDamageClass = false;
 
-            if (!(IsRogueShot || ProblemWeaponRegistry.IsProblemProjectile(projectile) || byDamageClass))
-                return;
+                if (RogueGuards.TryGetCalamityRogue(out var rogue) && projectile.DamageType == rogue)
+                    byDamageClass = true;
+                else if (RogueGuards.TryGetLVThrowDamageClass(out var lvThrow) && projectile.CountsAsClass(lvThrow))
+                    byDamageClass = true;
+
+                if (!(IsRogueShot || ProblemWeaponRegistry.IsProblemProjectile(projectile) || byDamageClass))
+                    return;
+            }
 
             if (BaseDamageScaledAtFire)
                 return;
@@ -353,15 +386,24 @@ namespace CLVCompat.Systems
             if (player == null)
                 return;
 
-            bool byDamageClass = false;
+            bool hardForcedProjectile = ProblemWeaponRegistry.WhitelistHardForce && ProblemWeaponRegistry.IsProblemProjectile(projectile);
 
-            if (RogueGuards.TryGetCalamityRogue(out var rogue) && projectile.DamageType == rogue)
-                byDamageClass = true;
-            else if (RogueGuards.TryGetLVThrowDamageClass(out var lvThrow) && projectile.CountsAsClass(lvThrow))
-                byDamageClass = true;
+            if (!hardForcedProjectile)
+            {
+                bool byDamageClass = false;
 
-            if (!(IsRogueShot || ProblemWeaponRegistry.IsProblemProjectile(projectile) || byDamageClass))
-                return;
+                if (RogueGuards.TryGetCalamityRogue(out var rogue) && projectile.DamageType == rogue)
+                    byDamageClass = true;
+                else if (RogueGuards.TryGetLVThrowDamageClass(out var lvThrow) && projectile.CountsAsClass(lvThrow))
+                    byDamageClass = true;
+
+                if (!(IsRogueShot || ProblemWeaponRegistry.IsProblemProjectile(projectile) || byDamageClass))
+                    return;
+            }
+            else
+            {
+                // hard force ensures stealth consume regardless of projectile tagging
+            }
 
             var strike = WasStrikeReadyAtFire || RogueStealthBridge.IsStrikeReady(player);
             RogueStealthBridge.ConsumeForAttack(player, strike);

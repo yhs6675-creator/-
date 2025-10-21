@@ -9,6 +9,8 @@ namespace CLVCompat.Systems
 {
     internal static class ProblemWeaponRegistry
     {
+        internal static bool WhitelistHardForce = true;
+
         private static readonly string[] DisplayNames_Throw = new[]
         {
             "Scatterbombs",
