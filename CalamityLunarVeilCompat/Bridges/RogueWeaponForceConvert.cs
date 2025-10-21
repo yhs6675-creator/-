@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using Terraria;
+using Terraria.Localization;
 using Terraria.ModLoader;
 using CLVCompat.Systems;
+using CLVCompat.Utils;
 
 namespace CalamityLunarVeilCompat.Bridges
 {
@@ -28,7 +30,11 @@ namespace CalamityLunarVeilCompat.Bridges
             if (item == null)
                 return;
 
-            if (!RogueGuards.IsFromLunarVeil(item))
+            bool whitelisted = WhitelistIndex.WhitelistTypes.Contains(item.type);
+            string normalized = DisplayNameNormalizer.Normalize(Lang.GetItemNameValue(item.type));
+            CompatDebug.LogWhitelistEntry(item, normalized, whitelisted);
+
+            if (!whitelisted && !RogueGuards.IsFromLunarVeil(item))
             {
                 RogueGuards.RestoreOriginalDamageClass(item);
                 return;
@@ -41,7 +47,7 @@ namespace CalamityLunarVeilCompat.Bridges
                 return;
             }
 
-            bool shouldConvert = ExplicitThrowWeapons.Contains(modItem.Name);
+            bool shouldConvert = whitelisted || ExplicitThrowWeapons.Contains(modItem.Name);
 
             if (!shouldConvert && RogueGuards.TryGetCurrentThrowState(item, out var isThrow))
                 shouldConvert = isThrow;

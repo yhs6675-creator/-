@@ -36,10 +36,20 @@ namespace CLVCompat.Systems
             if (LVRogueRegistry.IsRegistered(item.type))
                 return;
 
-            bool isThrow = false;
-            RogueGuards.TryGetCurrentThrowState(item, out isThrow);
+            bool whitelisted = WhitelistIndex.WhitelistTypes.Contains(item.type);
+            bool fromLunar = RogueGuards.IsFromLunarVeil(item);
+            bool problem = ProblemWeaponRegistry.IsProblemAnyItem(item);
 
-            bool shouldForce = ShouldForceRogue(item) || (ProblemWeaponRegistry.IsProblemAnyItem(item) && isThrow);
+            if (!whitelisted && !fromLunar && !problem)
+            {
+                RogueGuards.RestoreOriginalDamageClass(item);
+                return;
+            }
+
+            bool shouldForce = whitelisted || problem || ShouldForceRogue(item);
+
+            if (!shouldForce && RogueGuards.TryGetLVThrowDamageClass(out var lvThrow) && item.CountsAsClass(lvThrow))
+                shouldForce = true;
 
             if (shouldForce)
             {

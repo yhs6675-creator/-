@@ -10,34 +10,33 @@ namespace CLVCompat.Systems
     /// </summary>
     internal static class RogueGuards
     {
-        private static readonly string[] LunarVeilModIds =
+        private static readonly HashSet<string> ModIdSet = new(StringComparer.OrdinalIgnoreCase)
         {
             "LunarVeilMod",
             "LunarVeilLegacy",
             "LunarVielmod",
             "LunarViel",
-            "Stellamod",
+            "StellaMod",
+            "StellaLegacy",
         };
-
-        private static readonly HashSet<string> LunarVeilModIdSet = new(StringComparer.OrdinalIgnoreCase);
-
-        static RogueGuards()
-        {
-            foreach (var id in LunarVeilModIds)
-                LunarVeilModIdSet.Add(id);
-        }
 
         internal static bool IsFromLunarVeil(Item item)
         {
             var modName = item?.ModItem?.Mod?.Name;
-            return modName != null && LunarVeilModIdSet.Contains(modName);
+            return modName != null && ModIdSet.Contains(modName);
         }
 
-        internal static IEnumerable<string> EnumerateLunarVeilModIds() => LunarVeilModIds;
+        internal static IEnumerable<string> EnumerateLunarVeilModIds() => ModIdSet;
+
+        internal static void RegisterExtraModId(string modId)
+        {
+            if (!string.IsNullOrWhiteSpace(modId))
+                ModIdSet.Add(modId);
+        }
 
         internal static bool AnyLunarVeilLoaded()
         {
-            foreach (var id in LunarVeilModIds)
+            foreach (var id in ModIdSet)
             {
                 if (ModLoader.HasMod(id))
                     return true;
@@ -89,7 +88,7 @@ namespace CLVCompat.Systems
 
         internal static bool TryGetLVThrowDamageClass(out DamageClass lvThrow)
         {
-            foreach (var id in LunarVeilModIds)
+            foreach (var id in ModIdSet)
             {
                 if (ModContent.TryFind($"{id}/ThrowingDamageClass", out lvThrow))
                     return true;
@@ -131,7 +130,7 @@ namespace CLVCompat.Systems
         {
             isThrow = false;
 
-            foreach (var id in LunarVeilModIds)
+            foreach (var id in ModIdSet)
             {
                 if (!ModLoader.TryGetMod(id, out var lv))
                     continue;
