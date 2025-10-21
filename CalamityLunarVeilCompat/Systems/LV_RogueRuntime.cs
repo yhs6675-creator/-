@@ -294,6 +294,18 @@ namespace CLVCompat.Systems
                 return;
             }
 
+            var modProjectile = projectile.ModProjectile;
+            if (modProjectile != null)
+            {
+                var fullName = modProjectile.FullName ?? string.Empty;
+                if (fullName.IndexOf(".Projectiles.", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                    fullName.IndexOf(".Thrown", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    TagFrom(item, true);
+                    return;
+                }
+            }
+
             if (item == null)
                 return;
 
