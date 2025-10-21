@@ -247,24 +247,23 @@ namespace CLVCompat.Systems
             Player player = null;
             Item item = null;
 
-            if (!TryResolveSource(source, out player, out item) && projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
+            if (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
             {
-                player = Main.player[projectile.owner];
-                item = player?.HeldItem;
+                var owner = Main.player[projectile.owner];
+                if (owner != null && owner.active)
+                {
+                    player = owner;
+                    item = owner.HeldItem;
+                }
             }
 
-            if (player == null)
-                return;
+            if (TryResolveSource(source, out var resolvedPlayer, out var resolvedItem))
+            {
+                player = resolvedPlayer ?? player;
+                item = resolvedItem ?? item;
+            }
 
             item ??= player?.HeldItem;
-
-            DamageClass rogueDc = null;
-            if (RogueGuards.TryGetCalamityRogue(out var rogueClass))
-                rogueDc = rogueClass;
-
-            DamageClass lvThrowDc = null;
-            if (RogueGuards.TryGetLVThrowDamageClass(out var lvThrowClass))
-                lvThrowDc = lvThrowClass;
 
             void TagFrom(Item captureItem, bool registerProjectile)
             {
@@ -277,25 +276,36 @@ namespace CLVCompat.Systems
                     {
                         BaseDamageScaledAtFire = globalTagged.HasBaseDamageBeenScaled;
 
-                        if (globalTagged.TryGetStrikeStateForProjectile(player, out var strikeFromUse))
+                        if (player != null && globalTagged.TryGetStrikeStateForProjectile(player, out var strikeFromUse))
                             WasStrikeReadyAtFire = strikeFromUse;
                     }
                 }
 
-                if (!WasStrikeReadyAtFire)
+                if (player != null && !WasStrikeReadyAtFire)
                     WasStrikeReadyAtFire = RogueStealthBridge.IsStrikeReady(player);
 
                 if (registerProjectile)
                     ProblemWeaponRegistry.AddProjectileTypeRuntime(projectile.type);
             }
 
-            if (ProblemWeaponRegistry.WhitelistHardForce)
+            if (ProblemWeaponRegistry.IsProblemProjectile(projectile))
             {
-                if ((item != null && ProblemWeaponRegistry.IsProblemAnyItem(item)) || ProblemWeaponRegistry.IsProblemProjectile(projectile))
-                {
-                    TagFrom(item, true);
-                    return;
-                }
+                TagFrom(item, true);
+                return;
+            }
+
+            DamageClass rogueDc = null;
+            if (RogueGuards.TryGetCalamityRogue(out var rogueClass))
+                rogueDc = rogueClass;
+
+            DamageClass lvThrowDc = null;
+            if (RogueGuards.TryGetLVThrowDamageClass(out var lvThrowClass))
+                lvThrowDc = lvThrowClass;
+
+            if (ProblemWeaponRegistry.WhitelistHardForce && item != null && ProblemWeaponRegistry.IsProblemAnyItem(item))
+            {
+                TagFrom(item, true);
+                return;
             }
 
             if (item != null && RogueGuards.TryGetCurrentThrowState(item, out bool isThrow) && isThrow)
@@ -304,7 +314,7 @@ namespace CLVCompat.Systems
                 return;
             }
 
-            if ((item != null && ProblemWeaponRegistry.IsProblemAnyItem(item)) || ProblemWeaponRegistry.IsProblemProjectile(projectile))
+            if (item != null && ProblemWeaponRegistry.IsProblemAnyItem(item))
             {
                 TagFrom(item, true);
                 return;
@@ -322,19 +332,7 @@ namespace CLVCompat.Systems
                 return;
             }
 
-            var modProjectile = projectile.ModProjectile;
-            if (modProjectile != null)
-            {
-                var fullName = modProjectile.FullName ?? string.Empty;
-                if (fullName.IndexOf(".Projectiles.", StringComparison.OrdinalIgnoreCase) >= 0 &&
-                    fullName.IndexOf(".Thrown", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    TagFrom(item, true);
-                    return;
-                }
-            }
-
-            if (item == null)
+            if (item == null || player == null)
                 return;
 
             if (!LV_RogueRuntime.ShouldHandleItem(item, player, out var isProblemItem))
