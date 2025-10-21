@@ -17,8 +17,8 @@ namespace CLVCompat.Systems
 
             Player player = source switch
             {
-                EntitySource_ItemUse use => use.Entity as Player,
                 EntitySource_ItemUse_WithAmmo withAmmo => withAmmo.Entity as Player,
+                EntitySource_ItemUse use => use.Entity as Player,
                 EntitySource_Parent parent => parent.Entity as Player,
                 _ => null
             };
