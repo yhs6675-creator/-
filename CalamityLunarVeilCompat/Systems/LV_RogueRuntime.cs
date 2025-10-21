@@ -239,6 +239,7 @@ namespace CLVCompat.Systems
 
         public override void OnSpawn(Projectile projectile, IEntitySource source)
         {
+            Main.NewText($"[CLV][Spawn] proj={projectile.type} full={projectile.ModProjectile?.FullName} src={source?.GetType().Name}");
             ConsumedOnce = false;
             IsRogueShot = false;
             WasStrikeReadyAtFire = false;
@@ -264,6 +265,8 @@ namespace CLVCompat.Systems
             }
 
             item ??= player?.HeldItem;
+
+            Main.NewText($"[CLV][Src] player={(player != null)} itemFN={item?.ModItem?.FullName}");
 
             void TagFrom(Item captureItem, bool registerProjectile)
             {
@@ -343,6 +346,7 @@ namespace CLVCompat.Systems
 
         public override void ModifyHitNPC(Projectile projectile, NPC target, ref NPC.HitModifiers modifiers)
         {
+            Main.NewText($"[CLV][Hit] tag={IsRogueShot} probProj={ProblemWeaponRegistry.IsProblemProjectile(projectile)} dmgCls={(projectile.DamageType?.GetType().Name ?? "null")}");
             var player = (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
                 ? Main.player[projectile.owner]
                 : null;

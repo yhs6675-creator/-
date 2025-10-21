@@ -311,10 +311,10 @@ namespace CLVCompat.Systems
             if (ThrowItemTypeIds.Contains(item.type))
                 return true;
 
-            if (TryMatchItemDisplayName(item, DisplayNamesThrow, ThrowItemTypeIds))
+            if (TryMatchItemNamespaces(item) && ThrowItemTypeIds.Contains(item.type))
                 return true;
 
-            return TryMatchItemNamespaces(item) && ThrowItemTypeIds.Contains(item.type);
+            return TryMatchItemDisplayName(item, DisplayNamesThrow, ThrowItemTypeIds);
         }
 
         internal static bool IsProblemSwappedItem(Item item)
@@ -325,10 +325,10 @@ namespace CLVCompat.Systems
             if (SwappedItemTypeIds.Contains(item.type))
                 return true;
 
-            if (TryMatchItemDisplayName(item, DisplayNamesSwapped, SwappedItemTypeIds))
+            if (TryMatchItemNamespaces(item) && SwappedItemTypeIds.Contains(item.type))
                 return true;
 
-            return TryMatchItemNamespaces(item) && SwappedItemTypeIds.Contains(item.type);
+            return TryMatchItemDisplayName(item, DisplayNamesSwapped, SwappedItemTypeIds);
         }
 
         internal static bool IsProblemAnyItem(Item item)
