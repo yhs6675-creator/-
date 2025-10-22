@@ -24,13 +24,13 @@ namespace CLVCompat.Systems
             ModInstance.Logger.Info($"[WL] item={itemName}/{baseName}, norm={normalized}, whitelisted={(whitelisted ? "yes" : "no")}");
         }
 
-        public static void LogSwapGate(Item item, bool whitelisted, bool swap, bool throwState, bool enterRogue)
+        public static void LogSwapGate(Item item, bool whitelisted, bool swap, bool throwState, bool enterRogue, bool pure = false, bool swapThrowNow = false)
         {
             if (!LogSwap)
                 return;
 
             string name = item?.Name ?? "<null>";
-            ModInstance.Logger.Info($"[SwapGate] item={name}, whitelisted={whitelisted}, swap={swap}, throwState={throwState}, enterRogue={enterRogue}");
+            ModInstance.Logger.Info($"[SwapGate] item={name}, whitelisted={whitelisted}, swap={swap}, throwState={throwState}, enterRogue={enterRogue}, pure={pure}, swapThrowNow={swapThrowNow}");
         }
 
         public static void LogRogueEntry(Item item, bool swapped, float stealth, float consumed)

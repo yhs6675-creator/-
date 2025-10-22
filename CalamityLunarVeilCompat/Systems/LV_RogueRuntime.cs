@@ -27,7 +27,7 @@ namespace CLVCompat.Systems
 
         public override void ModifyWeaponDamage(Item item, Player player, ref StatModifier damage)
         {
-            if (!TryPrepare(item, player, out float stealthBonus, out bool swapped))
+            if (!TryPrepare(item, player, out float stealthBonus, out bool swapThrowNow))
                 return;
 
             if (stealthBonus > 0f)
@@ -45,7 +45,7 @@ namespace CLVCompat.Systems
 
         private static void HandleUse(Item item, Player player)
         {
-            if (!TryPrepare(item, player, out _, out _))
+            if (!TryPrepare(item, player, out float stealthBonus, out bool swapThrowNow))
                 return;
 
             var ctx = player.GetModPlayer<RogueContext>();
@@ -54,19 +54,18 @@ namespace CLVCompat.Systems
 
             ProjectileSnapshot.MarkNextAsRogue(player);
             float consumed = CalamityBridge.ConsumeRogueStealth(player, 1f);
-            float stealthBonus = CalamityBridge.GetRogueStealthScalar(player);
-            CompatDebug.LogRogueEntry(item, true, stealthBonus, consumed);
+            CompatDebug.LogRogueEntry(item, swapThrowNow, stealthBonus, consumed);
         }
 
-        private static bool TryPrepare(Item item, Player player, out float stealthBonus, out bool swapped)
+        private static bool TryPrepare(Item item, Player player, out float stealthBonus, out bool swapThrowNow)
         {
             stealthBonus = 0f;
-            swapped = false;
+            swapThrowNow = false;
 
-            if (!IsSwapThrowReady(item, player, out bool whitelisted))
+            if (!IsSwapThrowReady(item, player, out bool whitelisted, out bool pureLVThrow, out bool swapNow))
                 return false;
 
-            swapped = true;
+            swapThrowNow = swapNow;
 
             var rogue = CalamityBridge.GetRogueDamageClass();
             if (rogue != null)
@@ -76,9 +75,11 @@ namespace CLVCompat.Systems
             return true;
         }
 
-        private static bool IsSwapThrowReady(Item item, Player player, out bool whitelisted)
+        private static bool IsSwapThrowReady(Item item, Player player, out bool whitelisted, out bool pureLVThrow, out bool swapThrowNow)
         {
             whitelisted = false;
+            pureLVThrow = false;
+            swapThrowNow = false;
 
             if (item == null || player == null)
                 return false;
@@ -88,13 +89,22 @@ namespace CLVCompat.Systems
             bool throwState = RogueGuards.TryGetCurrentThrowState(item, out var throwing) && throwing;
             bool problem = ProblemWeaponRegistry.IsProblemAnyItem(item);
 
-            bool eligible = whitelisted || problem;
-            if (!eligible && RogueGuards.TryGetLVThrowDamageClass(out var lvThrow) && item.CountsAsClass(lvThrow))
-                eligible = true;
+            // ① 확정 투척이면 무조건 통과
+            pureLVThrow = RogueGuards.TryGetLVThrowDamageClass(out var lvThrow) && item.CountsAsClass(lvThrow);
 
-            bool enterRogue = swap && throwState && eligible;
+            // ② 스왑핑 무기는 “스왑 + 투척 상태”일 때만 통과
+            swapThrowNow = swap && throwState;
 
-            CompatDebug.LogSwapGate(item, whitelisted, swap, throwState, enterRogue);
+            // ③ 화이트리스트와 문제 목록은 보조 수단이지만, 스왑 전엔 금지
+            bool enterRogue = pureLVThrow || ((whitelisted || problem) && swapThrowNow) || swapThrowNow;
+
+            CompatDebug.LogSwapGate(item,
+                whitelisted: whitelisted,
+                swap: swap,
+                throwState: throwState,
+                enterRogue: enterRogue,
+                pure: pureLVThrow,
+                swapThrowNow: swapThrowNow);
 
             if (!enterRogue)
             {
