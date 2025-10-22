@@ -1,4 +1,3 @@
-using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ModLoader;
 using CLVCompat.Systems;
@@ -12,46 +11,30 @@ namespace CalamityLunarVeilCompat.Bridges
             return RogueGuards.TryGetCalamityRogue(out var rogue) ? rogue : null;
         }
 
+        // 읽기 전용: 현재 비율 × 데미지 스케일만 반환. 절대 소모하지 않음.
         public static float GetRogueStealthScalar(Player player)
         {
             if (player == null)
                 return 0f;
 
-            if (!RogueStealthBridge.TryGetStealth(player, out var current, out var max) || max <= 0f)
+            if (!RogueStealthBridge.TryGetStealth(player, out var current, out var max))
                 return 0f;
 
-            float ratio = MathHelper.Clamp(current / max, 0f, 1f);
+            if (current <= 0f || max <= 0f)
+                return 0f;
+
             const float DamageScale = 0.25f;
-            return DamageScale * ratio;
+            return (current / max) * DamageScale;
         }
 
+        // 소모 전용: 발사 순간에만 호출(HandleUse 내부)
         public static float ConsumeRogueStealth(Player player, float amountRatio = 1f)
         {
             if (player == null)
                 return 0f;
 
-            amountRatio = MathHelper.Clamp(amountRatio, 0f, 1f);
-            if (amountRatio <= 0f)
-                return 0f;
-
             bool strike = RogueStealthBridge.IsStrikeReady(player);
             float consumed = RogueStealthBridge.ConsumeForAttack(player, strike);
-
-            if (amountRatio < 1f && consumed > 0f &&
-                RogueStealthBridge.TryGetStealth(player, out var curAfter, out var maxAfter))
-            {
-                float refund = consumed * (1f - amountRatio);
-                if (refund > 0f)
-                {
-                    float restored = MathHelper.Clamp(curAfter + refund, 0f, maxAfter);
-                    if (RogueStealthBridge.TrySetStealth(player, restored))
-                    {
-                        consumed -= refund;
-                        curAfter = restored;
-                    }
-                }
-                RogueStealthBridge.TryGetStealth(player, out curAfter, out _);
-            }
 
             if (strike)
                 RogueStealthBridge.NotifyStealthStrikeFired(player, null);

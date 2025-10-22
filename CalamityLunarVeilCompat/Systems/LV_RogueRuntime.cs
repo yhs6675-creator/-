@@ -55,7 +55,7 @@ namespace CLVCompat.Systems
                 return;
 
             ProjectileSnapshot.MarkNextAsRogue(player);
-            float consumed = CalamityBridge.ConsumeRogueStealth(player);
+            float consumed = CalamityBridge.ConsumeRogueStealth(player, 1f);
             CompatDebug.LogRogueEntry(item, swapThrowNow, stealthBonus, consumed);
         }
 
