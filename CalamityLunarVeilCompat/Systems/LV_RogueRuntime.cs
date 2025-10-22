@@ -15,12 +15,14 @@ namespace CLVCompat.Systems
 
         public override bool? UseItem(Item item, Player player)
         {
+            // UseItem만 호출되는 무기에서도 스텔스 소비/스냅샷이 일관되게 적용되도록 공통 처리 호출.
             HandleUse(item, player);
             return base.UseItem(item, player);
         }
 
         public override bool Shoot(Item item, Player player, EntitySource_ItemUse_WithAmmo source, Vector2 position, Vector2 velocity, int type, int damage, float knockback)
         {
+            // 다수의 루나베일 투척 무기는 Shoot 훅만 실행되므로 여기서도 동일한 소비 로직을 호출한다.
             HandleUse(item, player);
             return base.Shoot(item, player, source, position, velocity, type, damage, knockback);
         }
