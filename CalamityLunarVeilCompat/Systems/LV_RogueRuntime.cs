@@ -1,3 +1,4 @@
+using System;
 using CalamityLunarVeilCompat.Bridges;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -56,6 +57,7 @@ namespace CLVCompat.Systems
                 return;
 
             ProjectileSnapshot.MarkNextAsRogue(player);
+            ctx.LastRogueMarkTick = Main.GameUpdateCount;
             CompatDebug.LogInfo($"[DIAG] HandleUse MarkNext completed for item={item?.Name ?? "<null>"}");
             float consumed = CalamityBridge.ConsumeRogueStealth(player, 1f);
             CompatDebug.LogRogueEntry(item, swapThrowNow, stealthBonus, consumed);
@@ -96,12 +98,16 @@ namespace CLVCompat.Systems
             bool throwState = RogueGuards.TryGetCurrentThrowState(item, out var throwing) && throwing;
 
             // ① 확정 투척이면 무조건 통과
-            DamageClass lvThrow;
-            bool hasLVThrow = RogueGuards.TryGetLVThrowDamageClass(out lvThrow);
-            pureLVThrow = hasLVThrow && item.CountsAsClass(lvThrow);
-            string lvThrowName = hasLVThrow ? lvThrow.DisplayName?.Value ?? "<null>" : "<null>";
+            bool haveLVThrow = RogueGuards.TryGetLVThrowDamageClass(out var lvThrow);
+            bool pureByLVClass = haveLVThrow && item.CountsAsClass(lvThrow);
+            bool isTMLThrow = item.DamageType is Terraria.ModLoader.ThrowingDamageClass;
+            string modName = item.ModItem?.Mod?.Name ?? string.Empty;
+            bool pureByFallbackA = isTMLThrow && modName.Equals("LunarVeil", StringComparison.OrdinalIgnoreCase);
+            bool pureByWhitelist = whitelistHit;
+            pureLVThrow = pureByLVClass || pureByFallbackA || pureByWhitelist;
+            string lvThrowName = haveLVThrow ? lvThrow.DisplayName?.Value ?? "<null>" : "<null>";
             string itemDamageType = item?.DamageType?.GetType().FullName ?? "<null>";
-            CompatDebug.LogInfo($"[DIAG] pureLVThrow={pureLVThrow}, lvThrow={lvThrowName}, itemDC={itemDamageType}");
+            CompatDebug.LogInfo($"[DIAG] pureLVThrow={pureLVThrow}, byLVClass={pureByLVClass}, byFallbackA={pureByFallbackA}, byWhitelist={pureByWhitelist}, lvThrow={lvThrowName}, itemDC={itemDamageType}, modName={modName}");
 
             // ② 스왑핑 무기는 "스왑 + 투척 상태"일 때만 통과
             swapThrowNow = swap && throwState;

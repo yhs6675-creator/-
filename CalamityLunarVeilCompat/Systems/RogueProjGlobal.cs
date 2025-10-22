@@ -18,6 +18,20 @@ namespace CLVCompat.Systems
             {
                 FromRogueSwap = parentProj.GetGlobalProjectile<RogueProjGlobal>()?.FromRogueSwap == true;
             }
+            if (!FromRogueSwap && projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
+            {
+                Player owner = Main.player[projectile.owner];
+                var ctx = owner?.GetModPlayer<RogueContext>();
+                if (ctx != null)
+                {
+                    int dt = Main.GameUpdateCount - ctx.LastRogueMarkTick;
+                    const int MarkWindowTicks = 6;
+                    if (dt >= 0 && dt <= MarkWindowTicks && ctx.ForceConsumeMark())
+                    {
+                        FromRogueSwap = true;
+                    }
+                }
+            }
             CompatDebug.LogSnapshot(projectile, FromRogueSwap);
             string sourceName = source switch
             {
@@ -30,8 +44,7 @@ namespace CLVCompat.Systems
 
         public override void ModifyHitNPC(Projectile projectile, NPC target, ref NPC.HitModifiers modifiers)
         {
-            bool diagBypass = true;
-            if (!FromRogueSwap && !diagBypass)
+            if (!FromRogueSwap)
                 return;
 
             Player owner = (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
