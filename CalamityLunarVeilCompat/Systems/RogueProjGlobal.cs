@@ -22,13 +22,17 @@ namespace CLVCompat.Systems
             {
                 Player owner = Main.player[projectile.owner];
                 var ctx = owner?.GetModPlayer<RogueContext>();
-                if (ctx != null)
+                if (ctx != null && ctx.LastRogueMarkTick != uint.MaxValue)
                 {
-                    int dt = Main.GameUpdateCount - ctx.LastRogueMarkTick;
-                    const int MarkWindowTicks = 6;
-                    if (dt >= 0 && dt <= MarkWindowTicks && ctx.ForceConsumeMark())
+                    uint lastTick = ctx.LastRogueMarkTick;
+                    if (Main.GameUpdateCount >= lastTick)
                     {
-                        FromRogueSwap = true;
+                        uint dt = Main.GameUpdateCount - lastTick;
+                        const uint MarkWindowTicks = 6u;
+                        if (dt <= MarkWindowTicks && ctx.ForceConsumeMark())
+                        {
+                            FromRogueSwap = true;
+                        }
                     }
                 }
             }

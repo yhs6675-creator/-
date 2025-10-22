@@ -57,7 +57,6 @@ namespace CLVCompat.Systems
                 return;
 
             ProjectileSnapshot.MarkNextAsRogue(player);
-            ctx.LastRogueMarkTick = Main.GameUpdateCount;
             CompatDebug.LogInfo($"[DIAG] HandleUse MarkNext completed for item={item?.Name ?? "<null>"}");
             float consumed = CalamityBridge.ConsumeRogueStealth(player, 1f);
             CompatDebug.LogRogueEntry(item, swapThrowNow, stealthBonus, consumed);

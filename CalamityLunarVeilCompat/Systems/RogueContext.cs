@@ -9,7 +9,7 @@ namespace CLVCompat.Systems
     {
         public bool RogueSwapActive { get; private set; }
         internal bool PendingProjectileMark { get; private set; }
-        public int LastRogueMarkTick { get; internal set; } = int.MinValue;
+        public uint LastRogueMarkTick { get; internal set; } = uint.MaxValue;
 
         private uint lastConsumeFrame = uint.MaxValue;
         private int lastConsumeAnimation = -1;
@@ -74,7 +74,7 @@ namespace CLVCompat.Systems
             pendingMarkFrame = Main.GameUpdateCount;
             pendingMarkItemType = Player.HeldItem?.type ?? 0;
             pendingMarkConsumed = false;
-            LastRogueMarkTick = (int)Main.GameUpdateCount;
+            LastRogueMarkTick = Main.GameUpdateCount;
         }
 
         internal bool TryConsumeMark(IEntitySource source)
