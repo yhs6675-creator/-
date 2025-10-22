@@ -534,7 +534,7 @@ namespace CLVCompat.Systems
             {
                 FallbackInitialized[idx] = true;
                 // 폴백 진입 시 스텔스를 가득 찬 상태(=최대치)로 시작하여 첫 공격에서 보정/소모가 적용되도록 한다.
-                FallbackMax[idx] = Math.Max(1f, FallbackMax[idx]);
+                FallbackMax[idx] = 1f;
                 FallbackCurrent[idx] = FallbackMax[idx];
             }
 
