@@ -100,7 +100,8 @@ namespace CLVCompat.Systems
 
             if (TryFallbackGetStealth(player, out current, out max))
             {
-                LogWarnOnce(ref loggedFallbackStealth, "[LVCompat] RogueStealthBridge falling back to cached stealth values.");
+                LogWarnOnce(ref loggedFallbackStealth,
+                    "[LVCompat] RogueStealthBridge using cached fallback for stealth values (init=full).");
                 return true;
             }
 
@@ -532,8 +533,9 @@ namespace CLVCompat.Systems
             if (!FallbackInitialized[idx])
             {
                 FallbackInitialized[idx] = true;
-                FallbackCurrent[idx] = 0f;
+                // 폴백 진입 시 스텔스를 가득 찬 상태(=최대치)로 시작하여 첫 공격에서 보정/소모가 적용되도록 한다.
                 FallbackMax[idx] = 1f;
+                FallbackCurrent[idx] = FallbackMax[idx];
             }
 
             current = FallbackCurrent[idx];

@@ -1,4 +1,4 @@
-using System;
+using CalamityLunarVeilCompat.Bridges;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.DataStructures;
@@ -7,436 +7,118 @@ using Terraria.ModLoader;
 namespace CLVCompat.Systems
 {
     /// <summary>
-    /// 루나베일 Rogue 무기에 칼라미티 스텔스 보정과 소비를 적용.
+    /// 루나베일 Rogue 무기에 칼라미티 스텔스 보정을 적용하고 스왑 상태를 감시한다.
     /// </summary>
     public class LV_RogueRuntime : GlobalItem
     {
-        private bool lastStealthStrike;
-        private uint lastConsumeFrame = uint.MaxValue;
-        private int lastConsumePlayer = -1;
-        private int lastConsumeAnimation = -1;
-        private int lastConsumeItemTime = -1;
-        private bool baseDamageScaled;
-
-        public override bool InstancePerEntity => true;
-
-        public override bool CanUseItem(Item item, Player player)
-        {
-            lastStealthStrike = false;
-            lastConsumeFrame = uint.MaxValue;
-            lastConsumePlayer = -1;
-            lastConsumeAnimation = -1;
-            lastConsumeItemTime = -1;
-            baseDamageScaled = false;
-            return base.CanUseItem(item, player);
-        }
+        public override bool InstancePerEntity => false;
 
         public override bool? UseItem(Item item, Player player)
         {
-            TryConsumeStealth(item, player);
+            // UseItem만 호출되는 무기에서도 스텔스 소비/스냅샷이 일관되게 적용되도록 공통 처리 호출.
+            HandleUse(item, player);
             return base.UseItem(item, player);
-        }
-
-        public override void UseAnimation(Item item, Player player)
-        {
-            TryConsumeStealth(item, player);
-            base.UseAnimation(item, player);
-        }
-
-        public override void UseStyle(Item item, Player player, Rectangle heldItemFrame)
-        {
-            TryConsumeStealth(item, player);
-            base.UseStyle(item, player, heldItemFrame);
         }
 
         public override bool Shoot(Item item, Player player, EntitySource_ItemUse_WithAmmo source, Vector2 position, Vector2 velocity, int type, int damage, float knockback)
         {
-            TryConsumeStealth(item, player);
+            // 다수의 루나베일 투척 무기는 Shoot 훅만 실행되므로 여기서도 동일한 소비 로직을 호출한다.
+            HandleUse(item, player);
             return base.Shoot(item, player, source, position, velocity, type, damage, knockback);
         }
 
         public override void ModifyWeaponDamage(Item item, Player player, ref StatModifier damage)
         {
-            if (!ShouldHandleItem(item, player, out _))
+            if (!TryPrepare(item, player, out float stealthBonus, out bool swapThrowNow))
                 return;
 
-            if (TryGetStealthMultiplier(player, out var multiplier))
-            {
-                damage *= multiplier;
-                baseDamageScaled = true;
-            }
+            if (stealthBonus > 0f)
+                damage *= 1f + stealthBonus;
         }
 
         public override void ModifyHitNPC(Item item, Player player, NPC target, ref NPC.HitModifiers modifiers)
         {
-            if (ProblemWeaponRegistry.WhitelistHardForce && ProblemWeaponRegistry.IsProblemAnyItem(item))
-            {
-                if (!baseDamageScaled && TryGetStealthMultiplier(player, out var hardForceMultiplier))
-                    modifiers.FinalDamage *= hardForceMultiplier;
-
-                return;
-            }
-
-            if (!ShouldHandleItem(item, player, out _))
+            if (!TryPrepare(item, player, out float stealthBonus, out _))
                 return;
 
-            if (baseDamageScaled)
-                return;
-
-            if (TryGetStealthMultiplier(player, out var multiplier))
-                modifiers.FinalDamage *= multiplier;
+            if (stealthBonus > 0f)
+                modifiers.SourceDamage *= 1f + stealthBonus;
         }
 
-        public override void OnHitNPC(Item item, Player player, NPC target, NPC.HitInfo hit, int damageDone)
+        private static void HandleUse(Item item, Player player)
         {
-            if (ProblemWeaponRegistry.WhitelistHardForce && ProblemWeaponRegistry.IsProblemAnyItem(item))
-            {
-                var strikeHardForce = RogueStealthBridge.IsStrikeReady(player);
-                RogueStealthBridge.ConsumeForAttack(player, strikeHardForce);
-
-                if (strikeHardForce)
-                    RogueStealthBridge.NotifyStealthStrikeFired(player, null);
-
-                return;
-            }
-
-            if (!ShouldHandleItem(item, player, out _))
+            if (!TryPrepare(item, player, out float stealthBonus, out bool swapThrowNow))
                 return;
 
-            var strike = RogueStealthBridge.IsStrikeReady(player);
-            RogueStealthBridge.ConsumeForAttack(player, strike);
+            var ctx = player.GetModPlayer<RogueContext>();
+            if (!ctx.TryFlagConsume())
+                return;
 
-            if (strike)
-                RogueStealthBridge.NotifyStealthStrikeFired(player, null);
+            ProjectileSnapshot.MarkNextAsRogue(player);
+            float consumed = CalamityBridge.ConsumeRogueStealth(player);
+            CompatDebug.LogRogueEntry(item, swapThrowNow, stealthBonus, consumed);
         }
 
-        internal bool TryGetStrikeStateForProjectile(Player player, out bool strike)
+        private static bool TryPrepare(Item item, Player player, out float stealthBonus, out bool swapThrowNow)
         {
-            if (player == null || lastConsumePlayer != player.whoAmI)
-            {
-                strike = false;
-                return false;
-            }
+            stealthBonus = 0f;
+            swapThrowNow = false;
 
-            if (lastConsumeFrame == uint.MaxValue || Main.GameUpdateCount - lastConsumeFrame > 1u)
-            {
-                strike = false;
+            if (!IsSwapThrowReady(item, player, out bool whitelisted, out bool pureLVThrow, out bool swapNow))
                 return false;
-            }
 
-            strike = lastStealthStrike;
+            swapThrowNow = swapNow;
+
+            var rogue = CalamityBridge.GetRogueDamageClass();
+            if (rogue != null)
+                player.GetDamage(rogue) += 0f;
+
+            stealthBonus = CalamityBridge.GetRogueStealthScalar(player);
             return true;
         }
 
-        private void TryConsumeStealth(Item item, Player player)
+        private static bool IsSwapThrowReady(Item item, Player player, out bool whitelisted, out bool pureLVThrow, out bool swapThrowNow)
         {
-            if (!ShouldHandleItem(item, player, out _))
-                return;
+            whitelisted = false;
+            pureLVThrow = false;
+            swapThrowNow = false;
 
-            if (lastConsumePlayer == player.whoAmI)
+            if (item == null || player == null)
+                return false;
+
+            bool whitelistHit = WhitelistIndex.WhitelistTypes.Contains(item.type);
+            bool problem = ProblemWeaponRegistry.IsProblemAnyItem(item);
+            whitelisted = whitelistHit;
+            bool swap = player.GetModPlayer<RogueContext>().EvaluateSwapState(item);
+            bool throwState = RogueGuards.TryGetCurrentThrowState(item, out var throwing) && throwing;
+
+            // ① 확정 투척이면 무조건 통과
+            pureLVThrow = RogueGuards.TryGetLVThrowDamageClass(out var lvThrow) && item.CountsAsClass(lvThrow);
+
+            // ② 스왑핑 무기는 "스왑 + 투척 상태"일 때만 통과
+            swapThrowNow = swap && throwState;
+
+            // ③ 화이트리스트/문제 목록은 보조 수단이지만, 스왑 전엔 금지
+            bool WL_or_Problem = (whitelistHit || problem) && swapThrowNow;
+
+            // ✅ 최종 진입: 확정 투척은 무조건 통과, 스왑핑은 스왑+투척일 때만 통과
+            bool enterRogue = pureLVThrow || swapThrowNow || WL_or_Problem;
+
+            CompatDebug.LogSwapGate(item,
+                whitelisted: whitelistHit,
+                swap: swap,
+                throwState: throwState,
+                enterRogue: enterRogue,
+                pure: pureLVThrow,
+                swapThrowNow: swapThrowNow);
+
+            if (!enterRogue)
             {
-                if (lastConsumeFrame == Main.GameUpdateCount)
-                    return;
-
-                if (lastConsumeItemTime >= 0 && lastConsumeAnimation >= 0 &&
-                    player.itemTime == lastConsumeItemTime &&
-                    player.itemAnimation == lastConsumeAnimation)
-                {
-                    return;
-                }
-
-                if (lastConsumeItemTime >= 0 && player.itemTime >= 0 && player.itemTime < lastConsumeItemTime)
-                    return;
-
-                if (lastConsumeAnimation >= 0 && player.itemAnimation > 0 && player.itemAnimation < lastConsumeAnimation)
-                    return;
+                RogueGuards.RestoreOriginalDamageClass(item);
+                return false;
             }
 
-            bool strike = RogueStealthBridge.IsStrikeReady(player);
-            RogueStealthBridge.ConsumeForAttack(player, strike);
-
-            lastStealthStrike = strike;
-            lastConsumeFrame = Main.GameUpdateCount;
-            lastConsumePlayer = player.whoAmI;
-            lastConsumeAnimation = Math.Max(0, player.itemAnimation);
-            lastConsumeItemTime = Math.Max(0, player.itemTime);
-
-            if (strike && item.shoot <= 0)
-                RogueStealthBridge.NotifyStealthStrikeFired(player, null);
-        }
-
-        internal static bool ShouldProcess(Item item, Player player)
-        {
-            if (item == null || player == null)
-                return false;
-
-            if (RogueGuards.TryGetCalamityRogue(out var rogue) && item.DamageType == rogue)
-                return true;
-
-            if (RogueGuards.TryGetLVThrowDamageClass(out var lvThrow) && item.CountsAsClass(lvThrow))
-                return true;
-
-            return false;
-        }
-
-        internal static bool ShouldHandleItem(Item item, Player player, out bool isProblemItem)
-        {
-            isProblemItem = false;
-
-            if (item == null || player == null)
-                return false;
-
-            if (ProblemWeaponRegistry.IsProblemAnyItem(item) && IsSwapActiveOrRogue(item, player))
-            {
-                isProblemItem = true;
-                return true;
-            }
-
-            if (!ShouldProcess(item, player))
-                return false;
-
-            var modName = item.ModItem?.Mod?.Name;
-            return !string.Equals(modName, "CalamityMod", StringComparison.OrdinalIgnoreCase);
-        }
-
-        internal static bool IsSwapActiveOrRogue(Item item, Player player)
-        {
-            if (item == null || player == null)
-                return false;
-
-            if (RogueGuards.TryGetCalamityRogue(out var rogue) && item.DamageType == rogue)
-                return true;
-
-            if (RogueGuards.TryGetCurrentThrowState(item, out bool isThrow) && isThrow)
-                return true;
-
-            return false;
-        }
-
-        internal bool HasBaseDamageBeenScaled => baseDamageScaled;
-
-        internal static bool TryGetStealthMultiplier(Player player, out float multiplier)
-        {
-            multiplier = 1f;
-
-            if (!RogueStealthBridge.TryGetStealth(player, out var cur, out var max) || max <= 0f)
-                return false;
-
-            var ratio = MathHelper.Clamp(cur / max, 0f, 1f);
-            multiplier = 1f + 0.25f * ratio;
             return true;
-        }
-    }
-
-    internal sealed class LVRogueRuntimeProjectile : GlobalProjectile
-    {
-        public override bool InstancePerEntity => true;
-
-        public bool IsRogueShot { get; private set; }
-        public bool WasStrikeReadyAtFire { get; private set; }
-        public bool ConsumedOnce { get; private set; }
-        public bool BaseDamageScaledAtFire { get; private set; }
-
-        public override void OnSpawn(Projectile projectile, IEntitySource source)
-        {
-            Main.NewText($"[CLV][Spawn] proj={projectile.type} full={projectile.ModProjectile?.FullName} src={source?.GetType().Name}");
-            ConsumedOnce = false;
-            IsRogueShot = false;
-            WasStrikeReadyAtFire = false;
-            BaseDamageScaledAtFire = false;
-
-            Player player = null;
-            Item item = null;
-
-            if (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
-            {
-                var owner = Main.player[projectile.owner];
-                if (owner != null && owner.active)
-                {
-                    player = owner;
-                    item = owner.HeldItem;
-                }
-            }
-
-            if (TryResolveSource(source, out var resolvedPlayer, out var resolvedItem))
-            {
-                player = resolvedPlayer ?? player;
-                item = resolvedItem ?? item;
-            }
-
-            item ??= player?.HeldItem;
-
-            Main.NewText($"[CLV][Src] player={(player != null)} itemFN={item?.ModItem?.FullName}");
-
-            void TagFrom(Item captureItem, bool registerProjectile)
-            {
-                IsRogueShot = true;
-
-                if (captureItem != null)
-                {
-                    var globalTagged = captureItem.GetGlobalItem<LV_RogueRuntime>();
-                    if (globalTagged != null)
-                    {
-                        BaseDamageScaledAtFire = globalTagged.HasBaseDamageBeenScaled;
-
-                        if (player != null && globalTagged.TryGetStrikeStateForProjectile(player, out var strikeFromUse))
-                            WasStrikeReadyAtFire = strikeFromUse;
-                    }
-                }
-
-                if (player != null && !WasStrikeReadyAtFire)
-                    WasStrikeReadyAtFire = RogueStealthBridge.IsStrikeReady(player);
-
-                if (registerProjectile)
-                    ProblemWeaponRegistry.AddProjectileTypeRuntime(projectile.type);
-            }
-
-            if (ProblemWeaponRegistry.IsProblemProjectile(projectile))
-            {
-                TagFrom(item, true);
-                return;
-            }
-
-            DamageClass rogueDc = null;
-            if (RogueGuards.TryGetCalamityRogue(out var rogueClass))
-                rogueDc = rogueClass;
-
-            DamageClass lvThrowDc = null;
-            if (RogueGuards.TryGetLVThrowDamageClass(out var lvThrowClass))
-                lvThrowDc = lvThrowClass;
-
-            if (ProblemWeaponRegistry.WhitelistHardForce && item != null && ProblemWeaponRegistry.IsProblemAnyItem(item))
-            {
-                TagFrom(item, true);
-                return;
-            }
-
-            if (item != null && RogueGuards.TryGetCurrentThrowState(item, out bool isThrow) && isThrow)
-            {
-                TagFrom(item, true);
-                return;
-            }
-
-            if (item != null && ProblemWeaponRegistry.IsProblemAnyItem(item))
-            {
-                TagFrom(item, true);
-                return;
-            }
-
-            if (item != null && ((rogueDc != null && item.DamageType == rogueDc) || (lvThrowDc != null && item.CountsAsClass(lvThrowDc))))
-            {
-                TagFrom(item, false);
-                return;
-            }
-
-            if ((rogueDc != null && projectile.DamageType == rogueDc) || (lvThrowDc != null && projectile.CountsAsClass(lvThrowDc)))
-            {
-                TagFrom(item, false);
-                return;
-            }
-
-            if (item == null || player == null)
-                return;
-
-            if (!LV_RogueRuntime.ShouldHandleItem(item, player, out var isProblemItem))
-                return;
-
-            TagFrom(item, isProblemItem);
-        }
-
-        public override void ModifyHitNPC(Projectile projectile, NPC target, ref NPC.HitModifiers modifiers)
-        {
-            Main.NewText($"[CLV][Hit] tag={IsRogueShot} probProj={ProblemWeaponRegistry.IsProblemProjectile(projectile)} dmgCls={(projectile.DamageType?.GetType().Name ?? "null")}");
-            var player = (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
-                ? Main.player[projectile.owner]
-                : null;
-
-            if (player == null)
-                return;
-
-            bool hardForcedProjectile = ProblemWeaponRegistry.WhitelistHardForce && ProblemWeaponRegistry.IsProblemProjectile(projectile);
-
-            if (!hardForcedProjectile)
-            {
-                bool byDamageClass = false;
-
-                if (RogueGuards.TryGetCalamityRogue(out var rogue) && projectile.DamageType == rogue)
-                    byDamageClass = true;
-                else if (RogueGuards.TryGetLVThrowDamageClass(out var lvThrow) && projectile.CountsAsClass(lvThrow))
-                    byDamageClass = true;
-
-                if (!(IsRogueShot || ProblemWeaponRegistry.IsProblemProjectile(projectile) || byDamageClass))
-                    return;
-            }
-
-            if (BaseDamageScaledAtFire)
-                return;
-
-            if (LV_RogueRuntime.TryGetStealthMultiplier(player, out var multiplier))
-                modifiers.FinalDamage *= multiplier;
-        }
-
-        public override void OnHitNPC(Projectile projectile, NPC target, NPC.HitInfo hit, int damageDone)
-        {
-            if (ConsumedOnce)
-                return;
-
-            var player = (projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
-                ? Main.player[projectile.owner]
-                : null;
-
-            if (player == null)
-                return;
-
-            bool hardForcedProjectile = ProblemWeaponRegistry.WhitelistHardForce && ProblemWeaponRegistry.IsProblemProjectile(projectile);
-
-            if (!hardForcedProjectile)
-            {
-                bool byDamageClass = false;
-
-                if (RogueGuards.TryGetCalamityRogue(out var rogue) && projectile.DamageType == rogue)
-                    byDamageClass = true;
-                else if (RogueGuards.TryGetLVThrowDamageClass(out var lvThrow) && projectile.CountsAsClass(lvThrow))
-                    byDamageClass = true;
-
-                if (!(IsRogueShot || ProblemWeaponRegistry.IsProblemProjectile(projectile) || byDamageClass))
-                    return;
-            }
-            else
-            {
-                // hard force ensures stealth consume regardless of projectile tagging
-            }
-
-            var strike = WasStrikeReadyAtFire || RogueStealthBridge.IsStrikeReady(player);
-            RogueStealthBridge.ConsumeForAttack(player, strike);
-
-            if (strike)
-                RogueStealthBridge.NotifyStealthStrikeFired(player, projectile);
-
-            ConsumedOnce = true;
-        }
-
-        private static bool TryResolveSource(IEntitySource source, out Player player, out Item item)
-        {
-            switch (source)
-            {
-                case EntitySource_ItemUse_WithAmmo withAmmo:
-                    player = withAmmo.Entity as Player;
-                    item = withAmmo.Item;
-                    return player != null && item != null;
-                case EntitySource_ItemUse itemUse:
-                    player = itemUse.Entity as Player;
-                    item = itemUse.Item;
-                    return player != null && item != null;
-                case EntitySource_Parent parent:
-                    player = parent.Entity as Player;
-                    item = player?.HeldItem;
-                    return player != null && item != null;
-                default:
-                    player = null;
-                    item = null;
-                    return false;
-            }
         }
     }
 }
