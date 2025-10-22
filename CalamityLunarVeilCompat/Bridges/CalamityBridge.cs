@@ -21,7 +21,9 @@ namespace CalamityLunarVeilCompat.Bridges
             if (current <= 0f || max <= 0f)
                 return 0f;
             const float DamageScale = 0.25f; // 필요 시 0.20~0.30 범위 미세 조정
-            return (current / max) * DamageScale;
+            float ratio = current / max;
+            CompatDebug.LogInfo($"[DIAG] GetScalar cur/max = {current}/{max}, ratio={ratio}");
+            return ratio * DamageScale;
         }
 
         // 소모 전용: 발사 순간(HandleUse)에서만 호출

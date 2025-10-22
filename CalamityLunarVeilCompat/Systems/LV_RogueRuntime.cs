@@ -2,6 +2,7 @@ using CalamityLunarVeilCompat.Bridges;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.DataStructures;
+using Terraria.Localization;
 using Terraria.ModLoader;
 
 namespace CLVCompat.Systems
@@ -55,8 +56,10 @@ namespace CLVCompat.Systems
                 return;
 
             ProjectileSnapshot.MarkNextAsRogue(player);
+            CompatDebug.LogInfo($"[DIAG] HandleUse MarkNext completed for item={item?.Name ?? "<null>"}");
             float consumed = CalamityBridge.ConsumeRogueStealth(player, 1f);
             CompatDebug.LogRogueEntry(item, swapThrowNow, stealthBonus, consumed);
+            CompatDebug.LogInfo($"[DIAG] HandleUse consumed={consumed:0.###}");
         }
 
         private static bool TryPrepare(Item item, Player player, out float stealthBonus, out bool swapThrowNow)
@@ -93,7 +96,12 @@ namespace CLVCompat.Systems
             bool throwState = RogueGuards.TryGetCurrentThrowState(item, out var throwing) && throwing;
 
             // ① 확정 투척이면 무조건 통과
-            pureLVThrow = RogueGuards.TryGetLVThrowDamageClass(out var lvThrow) && item.CountsAsClass(lvThrow);
+            DamageClass lvThrow;
+            bool hasLVThrow = RogueGuards.TryGetLVThrowDamageClass(out lvThrow);
+            pureLVThrow = hasLVThrow && item.CountsAsClass(lvThrow);
+            string lvThrowName = hasLVThrow ? lvThrow.DisplayName?.Value ?? "<null>" : "<null>";
+            string itemDamageType = item?.DamageType?.GetType().FullName ?? "<null>";
+            CompatDebug.LogInfo($"[DIAG] pureLVThrow={pureLVThrow}, lvThrow={lvThrowName}, itemDC={itemDamageType}");
 
             // ② 스왑핑 무기는 "스왑 + 투척 상태"일 때만 통과
             swapThrowNow = swap && throwState;

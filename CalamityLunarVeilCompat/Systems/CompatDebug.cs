@@ -59,5 +59,10 @@ namespace CLVCompat.Systems
             string name = projectile?.Name ?? "<null>";
             ModInstance.Logger.Info($"[Snapshot] proj={type}/{name}, fromRogueSwap={fromRogueSwap}");
         }
+
+        public static void LogInfo(string message)
+        {
+            ModInstance.Logger.Info(message);
+        }
     }
 }
