@@ -20,7 +20,7 @@ namespace CalamityLunarVeilCompat.Bridges
                 return 0f;
             if (current <= 0f || max <= 0f)
                 return 0f;
-            const float DamageScale = 0.25f; // 필요 시 0.20~0.30 범위 조정
+            const float DamageScale = 0.25f; // 필요 시 0.20~0.30 범위 미세 조정
             return (current / max) * DamageScale;
         }
 
