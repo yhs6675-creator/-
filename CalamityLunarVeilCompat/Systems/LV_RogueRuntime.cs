@@ -86,21 +86,26 @@ namespace CLVCompat.Systems
             if (item == null || player == null)
                 return false;
 
-            whitelisted = WhitelistIndex.WhitelistTypes.Contains(item.type) || ProblemWeaponRegistry.IsProblemAnyItem(item);
+            bool whitelistHit = WhitelistIndex.WhitelistTypes.Contains(item.type);
+            bool problem = ProblemWeaponRegistry.IsProblemAnyItem(item);
+            whitelisted = whitelistHit;
             bool swap = player.GetModPlayer<RogueContext>().EvaluateSwapState(item);
             bool throwState = RogueGuards.TryGetCurrentThrowState(item, out var throwing) && throwing;
 
             // ① 확정 투척이면 무조건 통과
             pureLVThrow = RogueGuards.TryGetLVThrowDamageClass(out var lvThrow) && item.CountsAsClass(lvThrow);
 
-            // ② 스왑핑 무기는 “스왑 + 투척 상태”일 때만 통과
+            // ② 스왑핑 무기는 "스왑 + 투척 상태"일 때만 통과
             swapThrowNow = swap && throwState;
 
             // ③ 화이트리스트/문제 목록은 보조 수단이지만, 스왑 전엔 금지
-            bool enterRogue = pureLVThrow || (whitelisted && swapThrowNow) || swapThrowNow;
+            bool WL_or_Problem = (whitelistHit || problem) && swapThrowNow;
+
+            // ✅ 최종 진입: 확정 투척은 무조건 통과, 스왑핑은 스왑+투척일 때만 통과
+            bool enterRogue = pureLVThrow || swapThrowNow || WL_or_Problem;
 
             CompatDebug.LogSwapGate(item,
-                whitelisted: whitelisted,
+                whitelisted: whitelistHit,
                 swap: swap,
                 throwState: throwState,
                 enterRogue: enterRogue,
