@@ -1,0 +1,197 @@
+using System;
+using System.Collections.Generic;
+using Terraria;
+using Terraria.ModLoader;
+
+namespace CLVCompat.Systems
+{
+    /// <summary>
+    /// 공용 가드/헬퍼: 루나베일 투척 여부 판정과 RogueDamageClass 조회.
+    /// </summary>
+    internal static class RogueGuards
+    {
+        private static readonly HashSet<string> ModIdSet = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "LunarVeilMod",
+            "LunarVeilLegacy",
+            "LunarVielmod",
+            "LunarViel",
+            "StellaMod",
+            "StellaLegacy",
+        };
+
+        internal static bool IsFromLunarVeil(Item item)
+        {
+            var modName = item?.ModItem?.Mod?.Name;
+            return modName != null && ModIdSet.Contains(modName);
+        }
+
+        internal static IEnumerable<string> EnumerateLunarVeilModIds() => ModIdSet;
+
+        internal static void RegisterExtraModId(string modId)
+        {
+            if (!string.IsNullOrWhiteSpace(modId))
+                ModIdSet.Add(modId);
+        }
+
+        internal static bool AnyLunarVeilLoaded()
+        {
+            foreach (var id in ModIdSet)
+            {
+                if (ModLoader.HasMod(id))
+                    return true;
+            }
+
+            return false;
+        }
+
+        internal static bool TryGetCalamityRogue(out DamageClass rogue)
+        {
+            return ModContent.TryFind("CalamityMod/RogueDamageClass", out rogue);
+        }
+
+        internal static bool TryForceRogueDamageClass(Item item)
+        {
+            if (item == null)
+                return false;
+
+            if (!TryGetCalamityRogue(out var rogue))
+                return false;
+
+            var state = item.GetGlobalItem<RogueDamageState>();
+
+            if (!state.ForcedByCompat)
+                state.CaptureOriginal(item.DamageType);
+
+            state.ForcedByCompat = true;
+
+            if (item.DamageType != rogue)
+                item.DamageType = rogue;
+
+            return true;
+        }
+
+        internal static void RestoreOriginalDamageClass(Item item)
+        {
+            if (item == null)
+                return;
+
+            var state = item.GetGlobalItem<RogueDamageState>();
+            if (!state.ForcedByCompat)
+                return;
+
+            if (state.HasOriginal && state.OriginalDamageClass != null)
+                item.DamageType = state.OriginalDamageClass;
+
+            state.Reset();
+        }
+
+        internal static bool TryGetLVThrowDamageClass(out DamageClass lvThrow)
+        {
+            foreach (var id in ModIdSet)
+            {
+                if (ModContent.TryFind($"{id}/ThrowingDamageClass", out lvThrow))
+                    return true;
+
+                if (ModContent.TryFind($"{id}/LVThrowingDamageClass", out lvThrow))
+                    return true;
+            }
+
+            lvThrow = null;
+            return false;
+        }
+
+        /// <summary>
+        /// 현재 아이템이 루나베일 기준 '투척' 상태인지 확인.
+        /// 확정 신호(스왑 API 또는 ThrowingDamageClass 카운트)만 사용.
+        /// </summary>
+        internal static bool TryGetCurrentThrowState(Item item, out bool isThrow)
+        {
+            if (TryAskIsClassSwappedToThrow(item, out var callResult))
+            {
+                isThrow = callResult;
+                return true;
+            }
+
+            if (TryGetLVThrowDamageClass(out var lvThrow) && item.CountsAsClass(lvThrow))
+            {
+                isThrow = true;
+                return true;
+            }
+
+            isThrow = false;
+            return false;
+        }
+
+        /// <summary>
+        /// 스왑 확정 신호만으로 '투척' 판정을 얻는다.
+        /// </summary>
+        private static bool TryAskIsClassSwappedToThrow(Item item, out bool isThrow)
+        {
+            isThrow = false;
+
+            foreach (var id in ModIdSet)
+            {
+                if (!ModLoader.TryGetMod(id, out var lv))
+                    continue;
+
+                object ret = null;
+
+                try
+                {
+                    ret = lv.Call("IsClassSwappedToThrow", item?.type ?? 0);
+                }
+                catch
+                {
+                }
+
+                if (ret is bool b1)
+                {
+                    isThrow = b1;
+                    return true;
+                }
+
+                try
+                {
+                    ret = lv.Call("IsClassSwappedToThrow", item);
+                }
+                catch
+                {
+                }
+
+                if (ret is bool b2)
+                {
+                    isThrow = b2;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private sealed class RogueDamageState : GlobalItem
+        {
+            public override bool InstancePerEntity => true;
+
+            public DamageClass OriginalDamageClass { get; private set; }
+            public bool HasOriginal { get; private set; }
+            public bool ForcedByCompat { get; set; }
+
+            public void CaptureOriginal(DamageClass damageClass)
+            {
+                if (HasOriginal)
+                    return;
+
+                OriginalDamageClass = damageClass;
+                HasOriginal = true;
+            }
+
+            public void Reset()
+            {
+                ForcedByCompat = false;
+                HasOriginal = false;
+                OriginalDamageClass = null;
+            }
+        }
+    }
+}
