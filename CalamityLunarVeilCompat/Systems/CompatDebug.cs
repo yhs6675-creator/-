@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Terraria;
 using Terraria.Localization;
 using Terraria.ModLoader;
@@ -14,6 +15,7 @@ namespace CLVCompat.Systems
 
         private static CalamityLunarVeilCompat ModInstance => ModContent.GetInstance<CalamityLunarVeilCompat>();
 
+        [Conditional("LVCOMPAT_LOG")]
         public static void LogWhitelistEntry(Item item, string normalized, bool whitelisted)
         {
             if (!LogWhitelist)
@@ -24,6 +26,7 @@ namespace CLVCompat.Systems
             ModInstance.Logger.Info($"[WL] item={itemName}/{baseName}, norm={normalized}, whitelisted={(whitelisted ? "yes" : "no")}");
         }
 
+        [Conditional("LVCOMPAT_LOG")]
         public static void LogSwapGate(Item item, bool whitelisted, bool swap, bool throwState, bool enterRogue, bool pure = false, bool swapThrowNow = false)
         {
             if (!LogSwap)
@@ -33,6 +36,7 @@ namespace CLVCompat.Systems
             ModInstance.Logger.Info($"[SwapGate] item={name}, whitelisted={whitelisted}, swap={swap}, throwState={throwState}, enterRogue={enterRogue}, pure={pure}, swapThrowNow={swapThrowNow}");
         }
 
+        [Conditional("LVCOMPAT_LOG")]
         public static void LogRogueEntry(Item item, bool swapped, float stealth, float consumed)
         {
             if (!LogRogue)
@@ -42,6 +46,7 @@ namespace CLVCompat.Systems
             ModInstance.Logger.Info($"[Rogue] item={name}, swapped={swapped}, stealth={stealth:0.###}, consumed={consumed:0.###}");
         }
 
+        [Conditional("LVCOMPAT_LOG")]
         public static void LogStealth(bool fired, float consumed, float stealthNow)
         {
             if (!LogStealthEvents)
@@ -50,6 +55,7 @@ namespace CLVCompat.Systems
             ModInstance.Logger.Info($"[Stealth] fired={fired}, consumed={consumed:0.###}, stealthNow={stealthNow:0.###}");
         }
 
+        [Conditional("LVCOMPAT_LOG")]
         public static void LogSnapshot(Projectile projectile, bool fromRogueSwap)
         {
             if (!LogSnapshotEvents)
@@ -60,6 +66,7 @@ namespace CLVCompat.Systems
             ModInstance.Logger.Info($"[Snapshot] proj={type}/{name}, fromRogueSwap={fromRogueSwap}");
         }
 
+        [Conditional("LVCOMPAT_LOG")]
         public static void LogInfo(string message)
         {
             ModInstance.Logger.Info(message);
