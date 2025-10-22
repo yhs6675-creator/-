@@ -18,7 +18,32 @@ namespace CLVCompat.Systems
             {
                 FromRogueSwap = parentProj.GetGlobalProjectile<RogueProjGlobal>()?.FromRogueSwap == true;
             }
+            if (!FromRogueSwap && projectile.owner >= 0 && projectile.owner < Main.maxPlayers)
+            {
+                Player owner = Main.player[projectile.owner];
+                var ctx = owner?.GetModPlayer<RogueContext>();
+                if (ctx != null && ctx.LastRogueMarkTick >= 0)
+                {
+                    uint currentTick = Main.GameUpdateCount;
+                    int lastTick = ctx.LastRogueMarkTick;
+                    int dt = (int)(currentTick - (uint)lastTick);
+                    const int MarkWindowTicks = 6;
+                    if (dt >= 0 && dt <= MarkWindowTicks)
+                    {
+                        FromRogueSwap = true;
+                        ctx.ForceConsumeMark();
+                        CompatDebug.LogInfo($"[DIAG] Tag restored by time-window: dt={dt}, src={source?.GetType().Name}");
+                    }
+                }
+            }
             CompatDebug.LogSnapshot(projectile, FromRogueSwap);
+            string sourceName = source switch
+            {
+                EntitySource_ItemUse_WithAmmo ammo => ammo.Item?.Name ?? "<null>",
+                EntitySource_ItemUse use => use.Item?.Name ?? "<null>",
+                _ => source?.ToString() ?? "<null>"
+            };
+            CompatDebug.LogInfo($"[DIAG] OnSpawn fromRogueSwap={FromRogueSwap}, source={sourceName}");
         }
 
         public override void ModifyHitNPC(Projectile projectile, NPC target, ref NPC.HitModifiers modifiers)
@@ -31,6 +56,7 @@ namespace CLVCompat.Systems
                 : null;
 
             float stealth = CalamityBridge.GetRogueStealthScalar(owner);
+            CompatDebug.LogInfo($"[DIAG] Hit fromSwap={FromRogueSwap}, stealth={stealth:0.###}");
             if (stealth > 0f)
                 modifiers.SourceDamage *= 1f + stealth;
         }
