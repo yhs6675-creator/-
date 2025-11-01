@@ -8,6 +8,7 @@ namespace CLVCompat.Systems
         public static void MarkNextAsRogue(Player player)
         {
             player?.GetModPlayer<RogueContext>()?.MarkNextProjectile();
+            CompatDebug.LogInfo($"[DIAG] Snapshot MarkNext invoked for player={player?.name ?? "<null>"}");
         }
 
         public static bool TryConsumeMark(IEntitySource source)

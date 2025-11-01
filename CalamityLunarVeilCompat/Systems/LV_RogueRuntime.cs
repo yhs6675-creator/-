@@ -1,7 +1,9 @@
+using System;
 using CalamityLunarVeilCompat.Bridges;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.DataStructures;
+using Terraria.Localization;
 using Terraria.ModLoader;
 
 namespace CLVCompat.Systems
@@ -55,8 +57,11 @@ namespace CLVCompat.Systems
                 return;
 
             ProjectileSnapshot.MarkNextAsRogue(player);
-            float consumed = CalamityBridge.ConsumeRogueStealth(player);
+            ctx.LastRogueMarkTick = (int)Main.GameUpdateCount;
+            CompatDebug.LogInfo($"[DIAG] HandleUse MarkNext completed for item={item?.Name ?? "<null>"}");
+            float consumed = CalamityBridge.ConsumeRogueStealth(player, 1f);
             CompatDebug.LogRogueEntry(item, swapThrowNow, stealthBonus, consumed);
+            CompatDebug.LogInfo($"[DIAG] HandleUse consumed={consumed:0.###}");
         }
 
         private static bool TryPrepare(Item item, Player player, out float stealthBonus, out bool swapThrowNow)
@@ -93,7 +98,23 @@ namespace CLVCompat.Systems
             bool throwState = RogueGuards.TryGetCurrentThrowState(item, out var throwing) && throwing;
 
             // ① 확정 투척이면 무조건 통과
-            pureLVThrow = RogueGuards.TryGetLVThrowDamageClass(out var lvThrow) && item.CountsAsClass(lvThrow);
+            bool haveLVThrow = RogueGuards.TryGetLVThrowDamageClass(out var lvThrow);
+            bool pureByLVClass = haveLVThrow && item.CountsAsClass(lvThrow);
+
+            bool isTMLThrow = item.DamageType is Terraria.ModLoader.ThrowingDamageClass;
+            string modName = item.ModItem?.Mod?.Name ?? string.Empty;
+            bool pureByModName = isTMLThrow && (
+                modName.Equals("LunarVeil", StringComparison.OrdinalIgnoreCase) ||
+                modName.Equals("Stellamod", StringComparison.OrdinalIgnoreCase));
+
+            string disp = (Lang.GetItemNameValue(item.type) ?? item.Name ?? string.Empty).Trim();
+            bool pureByDisplayWhitelist = !string.IsNullOrEmpty(disp) && WhitelistIndex.DisplayNameSet.Contains(disp);
+
+            pureLVThrow = pureByLVClass || pureByModName || pureByDisplayWhitelist;
+
+            string lvThrowName = haveLVThrow ? lvThrow.DisplayName?.Value ?? "<null>" : "<null>";
+            string itemDamageType = item?.DamageType?.GetType().FullName ?? "<null>";
+            CompatDebug.LogInfo($"[DIAG] pureLVThrow={pureLVThrow}, byLVClass={pureByLVClass}, byModName={pureByModName}, byDisplayWL={pureByDisplayWhitelist}, lvThrow={lvThrowName}, itemDC={itemDamageType}, modName={modName}, disp={disp}");
 
             // ② 스왑핑 무기는 "스왑 + 투척 상태"일 때만 통과
             swapThrowNow = swap && throwState;

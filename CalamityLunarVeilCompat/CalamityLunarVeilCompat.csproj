@@ -3,10 +3,15 @@
 	<!-- Import tModLoader mod properties -->
 	<Import Project="..\tModLoader.targets" />
 
-	<!-- General -->
-	<PropertyGroup>
-		
-	</PropertyGroup>
+        <!-- General -->
+        <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+                <DefineConstants>TRACE;DEBUG;LVCOMPAT_LOG</DefineConstants>
+        </PropertyGroup>
+
+        <PropertyGroup Condition="'$(Configuration)'=='Release'">
+                <DefineConstants>TRACE</DefineConstants>
+                <Optimize>true</Optimize>
+        </PropertyGroup>
 
 	<!-- References -->
 	<ItemGroup>
