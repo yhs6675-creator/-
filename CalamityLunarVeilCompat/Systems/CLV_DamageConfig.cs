@@ -1,5 +1,5 @@
-using Terraria.ModLoader;
 using Terraria.ModLoader.Config;
+using Terraria.ModLoader;
 
 namespace CalamityLunarVeilCompat
 {
@@ -19,6 +19,13 @@ namespace CalamityLunarVeilCompat
             }
         }
 
+        [Label("CLV: 무기/방어구 적용 툴팁 표시")]
+        [Tooltip("루나베일 무기/방어구에 적용된 배율/증가치를 툴팁으로 보여줍니다.")]
+        public bool ShowCompatTooltips { get; set; } = true;
+
+        [Label("CLV: 디버그 툴팁 표시")]
+        public bool ShowDebugTooltips { get; set; } = true;
+
         [Label("Lunar Veil 무기 데미지 배율")]
         [Range(0.1f, 10f)]
         public float LunarVeilDamageMultiplier { get; set; } = 2.0f;
@@ -37,13 +44,5 @@ namespace CalamityLunarVeilCompat
 
         [Label("Lunar Veil 방어구 방어력 보정 활성화")]
         public bool EnableArmorDefenseBoost { get; set; } = true;
-
-        [Label("CLV: 무기/방어구 적용 툴팁 표시")]
-        [Tooltip("루나베일 무기/방어구에 적용된 배율/증가치를 툴팁으로 보여줍니다.")]
-        public bool ShowCompatTooltips { get; set; } = true;
-
-        [Label("CLV: 디버그 툴팁(계산근거) 표시")]
-        [Tooltip("계산값(배율, baseDef, add 등)을 디버그용으로 함께 표시합니다.")]
-        public bool ShowDebugTooltips { get; set; } = false;
     }
 }
