@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Terraria;
+using Terraria.Localization;
 using Terraria.ModLoader;
 
 namespace CalamityLunarVeilCompat
@@ -37,21 +38,20 @@ namespace CalamityLunarVeilCompat
             if (player is null)
                 return;
 
+            bool useKorean = UseKorean();
+
             if (cfg.EnableArmorDefenseBoost && IsLunarVeilArmor(item))
             {
                 float mult = Math.Max(1f, cfg.ArmorDefenseMultiplier);
                 int baseDef = Math.Max(0, item.defense);
                 int add = (int)Math.Floor(baseDef * (mult - 1f) + 0.0001f);
 
+                string armorLine = useKorean
+                    ? $"[CLV] 루나베일 방어구 보정: 방어력 +{add}"
+                    : $"[CLV] Armor Bonus (Lunar Veil): +{add} Defense";
                 tooltips.Add(new TooltipLine(Mod,
-                    "CLV_ArmorBoost_EN",
-                    $"[CLV] Armor Bonus (Lunar Veil): +{add} Defense")
-                {
-                    OverrideColor = Microsoft.Xna.Framework.Color.LightSkyBlue
-                });
-                tooltips.Add(new TooltipLine(Mod,
-                    "CLV_ArmorBoost_KO",
-                    $"[CLV] 루나베일 방어구 보정: 방어력 +{add}")
+                    "CLV_ArmorBoost",
+                    armorLine)
                 {
                     OverrideColor = Microsoft.Xna.Framework.Color.LightSkyBlue
                 });
@@ -59,33 +59,36 @@ namespace CalamityLunarVeilCompat
                 if (cfg.ShowDebugTooltips)
                 {
                     string multTxt = mult % 1f == 0f ? mult.ToString("0") : mult.ToString("0.##");
+                    string debugLine = useKorean
+                        ? $"[DBG] baseDef={baseDef}, mult={multTxt}, add={add}"
+                        : $"[DBG] baseDef={baseDef}, mult={multTxt}, add={add}";
                     tooltips.Add(new TooltipLine(Mod,
                         "CLV_ArmorDebug",
-                        $"[CLV/DBG] baseDef={baseDef}, mult={multTxt}, add={add}"));
+                        debugLine));
                 }
             }
 
             int stealthMax = GetActiveSetStealthMaxIfWearingFullSet(player);
             if (stealthMax > 0 && IsPartOfAnyKnownSet(item))
             {
+                string setBonusLine = useKorean
+                    ? $"[CLV] 세트 보너스 활성: 로그 스텔스 최대치 = {stealthMax}"
+                    : $"[CLV] Set Bonus Active: Rogue Stealth Max = {stealthMax}";
                 tooltips.Add(new TooltipLine(Mod,
                     "CLV_SetBonusActive",
-                    $"[CLV] Set Bonus Active: Rogue Stealth Max = {stealthMax}")
-                {
-                    OverrideColor = Microsoft.Xna.Framework.Color.MediumSeaGreen
-                });
-                tooltips.Add(new TooltipLine(Mod,
-                    "CLV_SetBonusActive_KO",
-                    $"[CLV] 세트 보너스 활성: 로그 스텔스 최대치 = {stealthMax}")
+                    setBonusLine)
                 {
                     OverrideColor = Microsoft.Xna.Framework.Color.MediumSeaGreen
                 });
 
                 if (cfg.ShowDebugTooltips)
                 {
+                    string debugLine = useKorean
+                        ? $"[DBG] stealthMax(set)={stealthMax}"
+                        : $"[DBG] stealthMax(set)={stealthMax}";
                     tooltips.Add(new TooltipLine(Mod,
                         "CLV_StealthDebug",
-                        $"[CLV/DBG] stealthMax(set)={stealthMax}"));
+                        debugLine));
                 }
             }
         }
@@ -151,6 +154,24 @@ namespace CalamityLunarVeilCompat
                 return 100;
 
             return 0;
+        }
+
+        private static bool UseKorean()
+        {
+            var cfg = CLV_DamageConfig.Instance ?? ModContent.GetInstance<CLV_DamageConfig>();
+            return cfg.TooltipLanguage switch
+            {
+                TooltipLanguageMode.Korean => true,
+                TooltipLanguageMode.English => false,
+                _ => IsGameCultureKorean(),
+            };
+        }
+
+        private static bool IsGameCultureKorean()
+        {
+            string name = Language.ActiveCulture?.Name ?? Language.ActiveCultureName ?? string.Empty;
+            name = name.ToLowerInvariant();
+            return name.Contains("ko");
         }
     }
 }

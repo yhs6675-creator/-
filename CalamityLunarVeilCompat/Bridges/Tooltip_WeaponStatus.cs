@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Terraria;
+using Terraria.Localization;
 using Terraria.ModLoader;
 
 namespace CalamityLunarVeilCompat
@@ -46,17 +47,19 @@ namespace CalamityLunarVeilCompat
                 mult = 1f;
 
             string multTxt = mult % 1f == 0f ? mult.ToString("0") : mult.ToString("0.##");
+            bool useKorean = UseKorean();
+            string mainLine = useKorean
+                ? $"[CLV] 루나베일 무기 데미지 배율: x{multTxt}"
+                : $"[CLV] Damage Multiplier (Lunar Veil): x{multTxt}";
 
-            tooltips.Add(new TooltipLine(Mod, "CLV_WeaponMult_EN",
-                $"[CLV] Damage Multiplier (Lunar Veil): x{multTxt}"));
-
-            tooltips.Add(new TooltipLine(Mod, "CLV_WeaponMult_KO",
-                $"[CLV] 루나베일 무기 데미지 배율: x{multTxt}"));
+            tooltips.Add(new TooltipLine(Mod, "CLV_WeaponMult", mainLine));
 
             if (cfg.ShowDebugTooltips)
             {
-                tooltips.Add(new TooltipLine(Mod, "CLV_WeaponDebug",
-                    $"[CLV/DBG] baseDamage={item.damage}, master={Main.masterMode}"));
+                string debugLine = useKorean
+                    ? $"[DBG] baseDamage={item.damage}, master={Main.masterMode}"
+                    : $"[DBG] baseDamage={item.damage}, master={Main.masterMode}";
+                tooltips.Add(new TooltipLine(Mod, "CLV_WeaponDebug", debugLine));
             }
         }
 
@@ -73,6 +76,24 @@ namespace CalamityLunarVeilCompat
                 || modName == "LunarVeilLegacy"
                 || modName == "LunarVeil"
                 || modName == "LunarVeilLegacyMod";
+        }
+
+        private static bool UseKorean()
+        {
+            var cfg = CLV_DamageConfig.Instance ?? ModContent.GetInstance<CLV_DamageConfig>();
+            return cfg.TooltipLanguage switch
+            {
+                TooltipLanguageMode.Korean => true,
+                TooltipLanguageMode.English => false,
+                _ => IsGameCultureKorean(),
+            };
+        }
+
+        private static bool IsGameCultureKorean()
+        {
+            string name = Language.ActiveCulture?.Name ?? Language.ActiveCultureName ?? string.Empty;
+            name = name.ToLowerInvariant();
+            return name.Contains("ko");
         }
     }
 }
