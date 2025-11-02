@@ -1,3 +1,4 @@
+using Terraria.ModLoader;
 using Terraria.ModLoader.Config;
 
 namespace CalamityLunarVeilCompat
@@ -8,14 +9,14 @@ namespace CalamityLunarVeilCompat
 
         public override ConfigScope Mode => ConfigScope.ServerSide;
 
-        public override void OnLoaded()
-        {
-            Instance = this;
-        }
+        public override void OnLoaded() => Instance = this;
 
-        public override void OnUnloaded()
+        public override void OnChanged()
         {
-            Instance = null;
+            if (Instance != this)
+            {
+                Instance = this;
+            }
         }
 
         [Label("Lunar Veil 무기 데미지 배율")]
