@@ -163,15 +163,8 @@ namespace CalamityLunarVeilCompat
             {
                 TooltipLanguageMode.Korean => true,
                 TooltipLanguageMode.English => false,
-                _ => IsGameCultureKorean(),
+                _ => Language.ActiveCulture == GameCulture.FromCultureName(GameCulture.CultureName.Korean),
             };
-        }
-
-        private static bool IsGameCultureKorean()
-        {
-            string name = Language.ActiveCulture?.Name ?? Language.ActiveCultureName ?? string.Empty;
-            name = name.ToLowerInvariant();
-            return name.Contains("ko");
         }
     }
 }
