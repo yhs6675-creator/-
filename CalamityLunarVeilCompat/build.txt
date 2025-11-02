@@ -5,3 +5,4 @@ hideCode = false
 ModReferences = CalamityMod, Stellamod
 LoadAfter = CalamityMod, Stellamod
 Side = Both
+buildIgnore = CalamityLunarVeilCompat

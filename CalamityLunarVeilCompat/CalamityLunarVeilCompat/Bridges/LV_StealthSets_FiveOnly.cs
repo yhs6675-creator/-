@@ -9,35 +9,54 @@ namespace CalamityLunarVeilCompat
 {
     public class LV_StealthSets_FiveOnly : ModPlayer
     {
-        // 루나베일 5세트(Head, Body, Legs 내부명)
-        // 필요시 세트 추가/수정 가능
-        static readonly (string H, string B, string L)[] StealthSets = new[] {
-            ("LunarianVoidHead",    "LunarianVoidBody",     "LunarianVoidLegs"),
-            ("ScissorianMask",      "ScissorianChestplate", "ScissorianGreaves"),
-            ("JianxinMask",         "JianxinChestplate",    "JianxinLeggings"),
-            // ... (기존에 쓰시던 세트들 그대로 이어서 넣으세요)
-        };
-
-        // 루나베일 방어구인지 간단 판별 (모드명=Stellamod, 내부 아이템명 매칭)
         private static bool IsLVArmor(Item item, string internalName)
         {
             if (item == null || item.IsAir || item.ModItem == null) return false;
-            return item.ModItem.Mod?.Name == "Stellamod"
-                   && (item.ModItem.Name?.Equals(internalName, StringComparison.OrdinalIgnoreCase) ?? false);
+            var modName = item.ModItem.Mod?.Name;
+            bool isLunarVeilFamily = modName == "Stellamod"
+                                  || modName == "LunarVeilLegacy"
+                                  || modName == "LunarVeil"
+                                  || modName == "LunarVeilLegacyMod"
+                                  || (modName?.StartsWith("LunarVeil", StringComparison.Ordinal) ?? false);
+
+            return isLunarVeilFamily
+                && (item.ModItem.Name?.Equals(internalName, StringComparison.OrdinalIgnoreCase) ?? false);
         }
 
-        // 현재 플레이어가 위 목록 중 어떤 세트를 전부 착용했는지
-        private static bool WearingAnyLVStealthSet(Player p)
+        private static bool TryGetStealthMaxForSet(Player p, out float stealthMax)
         {
-            var h = p.armor[0];
-            var b = p.armor[1];
-            var l = p.armor[2];
+            stealthMax = 0f;
 
-            foreach (var set in StealthSets)
+            var head = p.armor[0];
+            var body = p.armor[1];
+            var legs = p.armor[2];
+
+            string headName = head?.ModItem?.Name;
+            string bodyName = body?.ModItem?.Name;
+            string legName = legs?.ModItem?.Name;
+
+            if (headName == null || bodyName == null || legName == null)
+                return false;
+
+            if (!IsLVArmor(head, headName) || !IsLVArmor(body, bodyName) || !IsLVArmor(legs, legName))
+                return false;
+
+            if (headName == "WindmillionHat" && bodyName == "WindmillionRobe" && legName == "WindmillionBoots")
             {
-                if (IsLVArmor(h, set.H) && IsLVArmor(b, set.B) && IsLVArmor(l, set.L))
-                    return true;
+                stealthMax = 0.5f;
+                stealthMax = Math.Clamp(stealthMax, 0f, 1f);
+                return true;
             }
+
+            if ((headName == "LunarianVoidHead" && bodyName == "LunarianVoidBody" && legName == "LunarianVoidLegs") ||
+                (headName == "ScissorianMask"   && bodyName == "ScissorianChestplate" && legName == "ScissorianGreaves") ||
+                (headName == "EldritchianHood"  && bodyName == "EldritchianCloak"     && legName == "EldritchianLegs"))
+            {
+                stealthMax = 1.0f;
+                stealthMax = Math.Clamp(stealthMax, 0f, 1f);
+                return true;
+            }
+
             return false;
         }
 
@@ -105,30 +124,6 @@ namespace CalamityLunarVeilCompat
             catch { /* ignore */ }
         }
 
-        private static void AddStealthMaxAtLeast(object calPlayerObj, float minAdd)
-        {
-            if (calPlayerObj == null) return;
-            try
-            {
-                // 현재 값 읽기
-                float current = 0f;
-                if (fRogueStealthMax != null)
-                {
-                    current = Convert.ToSingle(fRogueStealthMax.GetValue(calPlayerObj));
-                    if (current < minAdd) fRogueStealthMax.SetValue(calPlayerObj, minAdd);
-                    return;
-                }
-                if (pRogueStealthMax != null && pRogueStealthMax.CanRead)
-                {
-                    current = Convert.ToSingle(pRogueStealthMax.GetValue(calPlayerObj));
-                    if (pRogueStealthMax.CanWrite && current < minAdd)
-                        pRogueStealthMax.SetValue(calPlayerObj, minAdd);
-                    return;
-                }
-            }
-            catch { /* ignore */ }
-        }
-
         // ───────────────── 실제 적용 지점 ─────────────────
 
         public override void UpdateEquips()
@@ -137,18 +132,23 @@ namespace CalamityLunarVeilCompat
             EnsureCalamityReflection();
             if (!okCala) return; // Calamity 없으면 아무 것도 안 함
 
-            if (!WearingAnyLVStealthSet(Player))
+            if (!TryGetStealthMaxForSet(Player, out float stealthMax))
                 return;
 
-            // CalamityPlayer 인스턴스 확보
             var cal = GetCalamityPlayer(Player);
-            if (cal == null) return;
+            if (cal == null)
+                return;
 
-            // 칼라미티 Rogue 세트 착용 신호
             SetWearingRogue(cal, true);
 
-            // 스텔스 최대치 확보 (기존 코드: 최소 +0.5f 보장)
-            AddStealthMaxAtLeast(cal, 0.5f);
+            try
+            {
+                if (fRogueStealthMax != null)
+                    fRogueStealthMax.SetValue(cal, stealthMax);
+                else if (pRogueStealthMax != null && pRogueStealthMax.CanWrite)
+                    pRogueStealthMax.SetValue(cal, stealthMax);
+            }
+            catch { /* ignore */ }
         }
     }
 }

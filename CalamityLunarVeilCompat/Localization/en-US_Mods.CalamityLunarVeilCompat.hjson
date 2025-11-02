@@ -138,4 +138,33 @@ Configs: {
 			Tooltip: ""
 		}
 	}
+
+	CLV_DamageConfig: {
+		DisplayName: C L V_ Damage Config
+
+		LunarVeilDamageMultiplier: {
+			Label: Lunar Veil 무기 데미지 배율
+			Tooltip: ""
+		}
+
+		EnableMasterScaling: {
+			Label: 마스터 난이도 추가 배율 활성화
+			Tooltip: ""
+		}
+
+		MasterModeExtraMultiplier: {
+			Label: 마스터 난이도 추가 배율
+			Tooltip: ""
+		}
+
+		ArmorDefenseMultiplier: {
+			Label: Lunar Veil 방어구 방어력 배율
+			Tooltip: 루나베일 방어구 장착 시 추가되는 방어력 배율. 예: 1.5 = 50% 증가
+		}
+
+		EnableArmorDefenseBoost: {
+			Label: Lunar Veil 방어구 방어력 보정 활성화
+			Tooltip: ""
+		}
+	}
 }
