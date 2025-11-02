@@ -23,24 +23,6 @@ namespace CalamityLunarVeilCompat
             }
         }
 
-        public override void UpdateEquip(Item item, Player player)
-        {
-            if (!TryGetConfig(out var config))
-                return;
-
-            if (!config.EnableArmorDefenseBoost)
-                return;
-
-            if (!IsLunarVeilArmor(item))
-                return;
-
-            float mult = Math.Max(1f, config.ArmorDefenseMultiplier);
-            int baseDefense = Math.Max(0, item.defense);
-            int bonus = (int)Math.Floor(baseDefense * (mult - 1f) + 0.0001f);
-            if (bonus > 0)
-                player.statDefense += bonus;
-        }
-
         private static bool TryGetConfig(out CLV_DamageConfig config)
         {
             config = CLV_DamageConfig.Instance ?? ModContent.GetInstance<CLV_DamageConfig>();
@@ -68,19 +50,6 @@ namespace CalamityLunarVeilCompat
                 return false;
 
             return IsLunarVeilFamily(modName);
-        }
-
-        private static bool IsLunarVeilArmor(Item item)
-        {
-            if (item?.ModItem?.Mod == null)
-                return false;
-
-            bool isArmorSlot = item.headSlot >= 0 || item.bodySlot >= 0 || item.legSlot >= 0;
-            if (!isArmorSlot)
-                return false;
-
-            string modName = item.ModItem.Mod.Name;
-            return !string.IsNullOrEmpty(modName) && IsLunarVeilFamily(modName);
         }
 
         private static bool IsLunarVeilFamily(string modName)

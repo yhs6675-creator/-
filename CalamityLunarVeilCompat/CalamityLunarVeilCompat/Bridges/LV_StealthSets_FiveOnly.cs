@@ -23,9 +23,9 @@ namespace CalamityLunarVeilCompat
                 && (item.ModItem.Name?.Equals(internalName, StringComparison.OrdinalIgnoreCase) ?? false);
         }
 
-        private static bool TryGetStealthMaxForSet(Player p, out int stealthMax)
+        private static bool TryGetStealthMaxForSet(Player p, out float stealthMax)
         {
-            stealthMax = 0;
+            stealthMax = 0f;
 
             var head = p.armor[0];
             var body = p.armor[1];
@@ -43,7 +43,8 @@ namespace CalamityLunarVeilCompat
 
             if (headName == "WindmillionHat" && bodyName == "WindmillionRobe" && legName == "WindmillionBoots")
             {
-                stealthMax = 50;
+                stealthMax = 0.5f;
+                stealthMax = Math.Clamp(stealthMax, 0f, 1f);
                 return true;
             }
 
@@ -51,7 +52,8 @@ namespace CalamityLunarVeilCompat
                 (headName == "ScissorianMask"   && bodyName == "ScissorianChestplate" && legName == "ScissorianGreaves") ||
                 (headName == "EldritchianHood"  && bodyName == "EldritchianCloak"     && legName == "EldritchianLegs"))
             {
-                stealthMax = 100;
+                stealthMax = 1.0f;
+                stealthMax = Math.Clamp(stealthMax, 0f, 1f);
                 return true;
             }
 
@@ -130,7 +132,7 @@ namespace CalamityLunarVeilCompat
             EnsureCalamityReflection();
             if (!okCala) return; // Calamity 없으면 아무 것도 안 함
 
-            if (!TryGetStealthMaxForSet(Player, out int stealthMax))
+            if (!TryGetStealthMaxForSet(Player, out float stealthMax))
                 return;
 
             var cal = GetCalamityPlayer(Player);
@@ -142,9 +144,9 @@ namespace CalamityLunarVeilCompat
             try
             {
                 if (fRogueStealthMax != null)
-                    fRogueStealthMax.SetValue(cal, (float)stealthMax);
+                    fRogueStealthMax.SetValue(cal, stealthMax);
                 else if (pRogueStealthMax != null && pRogueStealthMax.CanWrite)
-                    pRogueStealthMax.SetValue(cal, (float)stealthMax);
+                    pRogueStealthMax.SetValue(cal, stealthMax);
             }
             catch { /* ignore */ }
         }
