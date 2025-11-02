@@ -81,12 +81,27 @@ namespace CalamityLunarVeilCompat
         private static bool UseKorean()
         {
             var cfg = CLV_DamageConfig.Instance ?? ModContent.GetInstance<CLV_DamageConfig>();
-            return cfg.TooltipLanguage switch
+            switch (cfg.TooltipLanguage)
             {
-                TooltipLanguageMode.Korean => true,
-                TooltipLanguageMode.English => false,
-                _ => Language.ActiveCulture == GameCulture.FromCultureName(GameCulture.CultureName.Korean),
-            };
+                case TooltipLanguageMode.Korean:
+                    return true;
+                case TooltipLanguageMode.English:
+                    return false;
+                case TooltipLanguageMode.Auto:
+                default:
+                {
+                    var culture = Language.ActiveCulture?.CultureInfo;
+                    if (culture != null)
+                    {
+                        if (culture.TwoLetterISOLanguageName.Equals("ko", StringComparison.OrdinalIgnoreCase))
+                            return true;
+                        if (culture.Name.StartsWith("ko", StringComparison.OrdinalIgnoreCase))
+                            return true;
+                    }
+
+                    return false;
+                }
+            }
         }
     }
 }
