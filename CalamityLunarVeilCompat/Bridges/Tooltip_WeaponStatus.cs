@@ -11,15 +11,32 @@ namespace CalamityLunarVeilCompat
 
         public override void ModifyTooltips(Item item, List<TooltipLine> tooltips)
         {
+            if (item == null)
+            {
+                return;
+            }
+
             var cfg = CLV_DamageConfig.Instance ?? ModContent.GetInstance<CLV_DamageConfig>();
             if (cfg == null || !cfg.ShowCompatTooltips)
+            {
                 return;
-
-            if (!IsWeapon(item))
-                return;
+            }
 
             if (!IsLunarVeilWeapon(item))
+            {
                 return;
+            }
+
+            bool isTool = item.pick > 0 || item.axe > 0 || item.hammer > 0;
+            if (isTool)
+            {
+                return;
+            }
+
+            if (item.damage <= 0 && !cfg.ShowDebugTooltips)
+            {
+                return;
+            }
 
             float mult = cfg.LunarVeilDamageMultiplier;
             if (cfg.EnableMasterScaling && Main.masterMode)
@@ -41,20 +58,6 @@ namespace CalamityLunarVeilCompat
                 tooltips.Add(new TooltipLine(Mod, "CLV_WeaponDebug",
                     $"[CLV/DBG] baseDamage={item.damage}, master={Main.masterMode}"));
             }
-        }
-
-        private static bool IsWeapon(Item item)
-        {
-            if (item == null)
-                return false;
-
-            if (item.damage <= 0)
-                return false;
-
-            if (item.pick > 0 || item.axe > 0 || item.hammer > 0)
-                return false;
-
-            return true;
         }
 
         private static bool IsLunarVeilWeapon(Item item)
