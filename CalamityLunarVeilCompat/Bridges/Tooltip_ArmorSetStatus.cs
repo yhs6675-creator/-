@@ -29,32 +29,39 @@ namespace CalamityLunarVeilCompat
             if (!IsLunarVeilFamily(item))
                 return;
 
+            var cfg = CLV_DamageConfig.Instance ?? ModContent.GetInstance<CLV_DamageConfig>();
+            if (cfg == null || !cfg.ShowCompatTooltips)
+                return;
+
             var player = Main.LocalPlayer;
             if (player is null)
                 return;
 
-            var cfg = CLV_DamageConfig.Instance ?? ModContent.GetInstance<CLV_DamageConfig>();
-
-            if (cfg?.EnableArmorDefenseBoost == true)
+            if (cfg.EnableArmorDefenseBoost && IsLunarVeilArmor(item))
             {
                 float mult = Math.Max(1f, cfg.ArmorDefenseMultiplier);
                 int baseDef = Math.Max(0, item.defense);
                 int add = (int)Math.Floor(baseDef * (mult - 1f) + 0.0001f);
 
-                if (add > 0)
+                tooltips.Add(new TooltipLine(Mod,
+                    "CLV_ArmorBoost_EN",
+                    $"[CLV] Armor Bonus (Lunar Veil): +{add} Defense")
                 {
+                    OverrideColor = Microsoft.Xna.Framework.Color.LightSkyBlue
+                });
+                tooltips.Add(new TooltipLine(Mod,
+                    "CLV_ArmorBoost_KO",
+                    $"[CLV] 루나베일 방어구 보정: 방어력 +{add}")
+                {
+                    OverrideColor = Microsoft.Xna.Framework.Color.LightSkyBlue
+                });
+
+                if (cfg.ShowDebugTooltips)
+                {
+                    string multTxt = mult % 1f == 0f ? mult.ToString("0") : mult.ToString("0.##");
                     tooltips.Add(new TooltipLine(Mod,
-                        "CLV_DefenseBoost",
-                        $"[CLV] +{add} Defense (Lunar Veil armor bonus)")
-                    {
-                        OverrideColor = Microsoft.Xna.Framework.Color.LightSkyBlue
-                    });
-                    tooltips.Add(new TooltipLine(Mod,
-                        "CLV_DefenseBoost_KO",
-                        $"[CLV] 루나베일 방어구 보정: 방어력 +{add}")
-                    {
-                        OverrideColor = Microsoft.Xna.Framework.Color.LightSkyBlue
-                    });
+                        "CLV_ArmorDebug",
+                        $"[CLV/DBG] baseDef={baseDef}, mult={multTxt}, add={add}"));
                 }
             }
 
@@ -73,6 +80,13 @@ namespace CalamityLunarVeilCompat
                 {
                     OverrideColor = Microsoft.Xna.Framework.Color.MediumSeaGreen
                 });
+
+                if (cfg.ShowDebugTooltips)
+                {
+                    tooltips.Add(new TooltipLine(Mod,
+                        "CLV_StealthDebug",
+                        $"[CLV/DBG] stealthMax(set)={stealthMax}"));
+                }
             }
         }
 
@@ -102,6 +116,9 @@ namespace CalamityLunarVeilCompat
 
             return name.StartsWith("Garbage", StringComparison.OrdinalIgnoreCase) && (item?.legSlot ?? -1) >= 0;
         }
+
+        private static bool IsLunarVeilArmor(Item item)
+            => IsArmor(item) && IsLunarVeilFamily(item);
 
         private static bool IsPartOfAnyKnownSet(Item item)
         {

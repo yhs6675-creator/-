@@ -17,6 +17,7 @@
         <ItemGroup>
                 <Compile Include="Bridges\LV_StealthSets_FiveOnly.cs" />
                 <Compile Include="Bridges\Tooltip_ArmorSetStatus.cs" />
+                <Compile Include="Bridges\Tooltip_WeaponStatus.cs" />
                 <Compile Include="Systems\CLV_DamageConfig.cs" />
                 <Compile Include="Systems\CLV_LunarVeilGlobalItem.cs" />
                 <Compile Include="Systems\CLV_ArmorDefensePlayer.cs" />
