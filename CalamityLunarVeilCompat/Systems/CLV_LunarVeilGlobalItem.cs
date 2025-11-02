@@ -14,12 +14,13 @@ namespace CalamityLunarVeilCompat
                 return;
 
             var cfg = CLV_DamageConfig.Instance ?? ModContent.GetInstance<CLV_DamageConfig>();
-            if (cfg == null)
-                return;
+            float multiplier = cfg?.LunarVeilDamageMultiplier ?? 2f;
 
-            float multiplier = cfg.LunarVeilDamageMultiplier;
-            if (cfg.EnableMasterScaling && Main.masterMode)
-                multiplier *= cfg.MasterModeExtraMultiplier;
+            if (cfg?.EnableMasterScaling == true && Main.masterMode)
+                multiplier *= MathF.Max(1f, cfg.MasterModeExtraMultiplier);
+
+            if (float.IsNaN(multiplier) || float.IsInfinity(multiplier) || multiplier <= 0f)
+                multiplier = 1f;
 
             damage *= multiplier;
         }
@@ -35,7 +36,7 @@ namespace CalamityLunarVeilCompat
             if (item.pick > 0 || item.axe > 0 || item.hammer > 0)
                 return false;
 
-            return item.DamageType != DamageClass.Default;
+            return true;
         }
 
         private static bool IsLunarVeilWeapon(Item item)

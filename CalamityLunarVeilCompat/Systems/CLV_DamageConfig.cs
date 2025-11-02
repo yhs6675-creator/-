@@ -4,13 +4,18 @@ namespace CalamityLunarVeilCompat
 {
     public class CLV_DamageConfig : ModConfig
     {
-        public static CLV_DamageConfig Instance { get; private set; }
+        public static CLV_DamageConfig Instance;
 
         public override ConfigScope Mode => ConfigScope.ServerSide;
 
         public override void OnLoaded()
         {
             Instance = this;
+        }
+
+        public override void OnUnloaded()
+        {
+            Instance = null;
         }
 
         [Label("Lunar Veil 무기 데미지 배율")]

@@ -92,6 +92,17 @@ namespace CalamityLunarVeilCompat
                 || modName == "LunarVeilLegacyMod";
         }
 
+        private static bool MatchesGarbageLeg(string name, Item item)
+        {
+            if (string.IsNullOrEmpty(name))
+                return false;
+
+            if (GarbageLegsNames.Contains(name))
+                return true;
+
+            return name.StartsWith("Garbage", StringComparison.OrdinalIgnoreCase) && (item?.legSlot ?? -1) >= 0;
+        }
+
         private static bool IsPartOfAnyKnownSet(Item item)
         {
             string n = item.ModItem?.Name ?? string.Empty;
@@ -100,14 +111,18 @@ namespace CalamityLunarVeilCompat
                 || n is "ScissorianMask" or "ScissorianChestplate" or "ScissorianGreaves"
                 || n is "EldritchianHood" or "EldritchianCloak" or "EldritchianLegs"
                 || n is "GarbageMask" or "GarbageChestplate"
-                || GarbageLegsNames.Contains(n);
+                || MatchesGarbageLeg(n, item);
         }
 
         private static int GetActiveSetStealthMaxIfWearingFullSet(Player p)
         {
-            string H = p.armor[0]?.ModItem?.Name ?? string.Empty;
-            string B = p.armor[1]?.ModItem?.Name ?? string.Empty;
-            string L = p.armor[2]?.ModItem?.Name ?? string.Empty;
+            var headItem = p.armor[0];
+            var bodyItem = p.armor[1];
+            var legItem = p.armor[2];
+
+            string H = headItem?.ModItem?.Name ?? string.Empty;
+            string B = bodyItem?.ModItem?.Name ?? string.Empty;
+            string L = legItem?.ModItem?.Name ?? string.Empty;
 
             if (H == "WindmillionHat" && B == "WindmillionRobe" && L == "WindmillionBoots")
                 return 50;
@@ -115,7 +130,7 @@ namespace CalamityLunarVeilCompat
             if ((H == "LunarianVoidHead" && B == "LunarianVoidBody" && L == "LunarianVoidLegs") ||
                 (H == "ScissorianMask"   && B == "ScissorianChestplate" && L == "ScissorianGreaves") ||
                 (H == "EldritchianHood"  && B == "EldritchianCloak"     && L == "EldritchianLegs") ||
-                (H == "GarbageMask"      && B == "GarbageChestplate"    && GarbageLegsNames.Contains(L)))
+                (H == "GarbageMask"      && B == "GarbageChestplate"    && MatchesGarbageLeg(L, legItem)))
                 return 100;
 
             return 0;

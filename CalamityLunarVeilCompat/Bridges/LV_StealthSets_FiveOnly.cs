@@ -10,7 +10,7 @@ namespace CalamityLunarVeilCompat
 {
     public class LV_StealthSets_FiveOnly : ModPlayer
     {
-        static readonly HashSet<string> GarbageLegsNames = new(StringComparer.OrdinalIgnoreCase)
+        private static readonly HashSet<string> GarbageLegsNames = new(StringComparer.OrdinalIgnoreCase)
         {
             "GarbageLegs",
             "GarbageGreaves",
@@ -23,14 +23,26 @@ namespace CalamityLunarVeilCompat
         {
             if (item == null || item.IsAir || item.ModItem == null) return false;
             var modName = item.ModItem.Mod?.Name;
-            bool isLunarVeilFamily = modName == "Stellamod"
-                                  || modName == "LunarVeilLegacy"
-                                  || modName == "LunarVeil"
-                                  || modName == "LunarVeilLegacyMod"
-                                  || (modName != null && modName.StartsWith("LunarVeil", StringComparison.Ordinal));
+            bool isLunarVeilFamily = CLV_LunarVeilGlobalItem.IsLunarVeilFamily(modName ?? string.Empty);
 
             return isLunarVeilFamily
                 && (item.ModItem.Name?.Equals(internalName, StringComparison.OrdinalIgnoreCase) ?? false);
+        }
+
+        private static bool IsGarbageLeg(Item item)
+        {
+            if (item == null || item.IsAir || item.ModItem == null)
+                return false;
+
+            string modName = item.ModItem.Mod?.Name ?? string.Empty;
+            if (!CLV_LunarVeilGlobalItem.IsLunarVeilFamily(modName))
+                return false;
+
+            string internalName = item.ModItem.Name ?? string.Empty;
+            if (GarbageLegsNames.Contains(internalName))
+                return true;
+
+            return internalName.StartsWith("Garbage", StringComparison.OrdinalIgnoreCase) && item.legSlot >= 0;
         }
 
         private static bool TryGetStealthMaxForSet(Player p, out float stealthMax)
@@ -44,16 +56,6 @@ namespace CalamityLunarVeilCompat
             if (head?.ModItem == null || body?.ModItem == null || legs?.ModItem == null)
                 return false;
 
-            bool IsGarbageLegs(Item item)
-            {
-                foreach (var name in GarbageLegsNames)
-                {
-                    if (IsLVArmor(item, name))
-                        return true;
-                }
-                return false;
-            }
-
             if (IsLVArmor(head, "WindmillionHat") && IsLVArmor(body, "WindmillionRobe") && IsLVArmor(legs, "WindmillionBoots"))
             {
                 stealthMax = 0.5f;
@@ -61,7 +63,7 @@ namespace CalamityLunarVeilCompat
             else if ((IsLVArmor(head, "LunarianVoidHead") && IsLVArmor(body, "LunarianVoidBody") && IsLVArmor(legs, "LunarianVoidLegs"))
                   || (IsLVArmor(head, "ScissorianMask")   && IsLVArmor(body, "ScissorianChestplate") && IsLVArmor(legs, "ScissorianGreaves"))
                   || (IsLVArmor(head, "EldritchianHood")  && IsLVArmor(body, "EldritchianCloak")     && IsLVArmor(legs, "EldritchianLegs"))
-                  || (IsLVArmor(head, "GarbageMask")      && IsLVArmor(body, "GarbageChestplate")    && IsGarbageLegs(legs)))
+                  || (IsLVArmor(head, "GarbageMask")      && IsLVArmor(body, "GarbageChestplate")    && IsGarbageLeg(legs)))
             {
                 stealthMax = 1.0f;
             }
