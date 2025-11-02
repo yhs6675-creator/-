@@ -32,7 +32,10 @@ namespace CLVCompat
             LVOceanSys.SetSignatureTile(TileID.ObsidianBrick);
         }
 
-        public override void Unload() { }
+        public override void Unload()
+        {
+            global::CalamityLunarVeilCompat.CLV_DamageConfig.Instance = null;
+        }
 
         private static bool TowerLumiPlaceAt(XnaPoint anchor)
         {

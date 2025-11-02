@@ -31,10 +31,5 @@ namespace CalamityLunarVeilCompat
         {
             Instance = this;
         }
-
-        public override void OnUnloaded()
-        {
-            Instance = null;
-        }
     }
 }
