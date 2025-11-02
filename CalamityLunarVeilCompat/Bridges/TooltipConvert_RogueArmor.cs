@@ -13,8 +13,6 @@ namespace CalamityLunarVeilCompat {
             "LunarianVoidHead","LunarianVoidBody","LunarianVoidLegs",
             // Scissorian
             "ScissorianMask","ScissorianChestplate","ScissorianGreaves",
-            // Jianxin
-            "JianxinMask","JianxinChestplate","JianxinLeggings",
             // Windmillion
             "WindmillionHat","WindmillionRobe","WindmillionBoots",
             // Eldritchian
